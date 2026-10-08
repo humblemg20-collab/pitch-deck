@@ -80,7 +80,8 @@ function stable() {
     throw
   }
   if (-not $?) {throw 'STAGING_SCRIPT_FAILED'}
-  $releaseRoot=(@($output | Where-Object {$_ -match '^RELEASE_ROOT='})[0] -replace '^RELEASE_ROOT=','')
+  $releaseFolder=Get-ChildItem -LiteralPath $args.OutputRoot -Directory | Sort-Object Name -Descending | Select-Object -First 1
+  $releaseRoot=if ($releaseFolder) {$releaseFolder.FullName} else {''}
   if (-not $releaseRoot) {throw 'MISSING_RELEASE_ROOT'}
   $manifest=Get-Content (Join-Path $releaseRoot 'manifest.json') -Raw | ConvertFrom-Json
   $payload=Join-Path $releaseRoot 'payload'
