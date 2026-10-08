@@ -26,3 +26,6 @@ jobs:
       - name: Verify safe three-way release staging and live-only preservation
         shell: pwsh
         run: ./tests/stage-safe-release.test.ps1
+      - name: Verify conflict diagnostics stay metadata-only
+        shell: pwsh
+        run: ./tests/inspect-release-conflicts.test.ps1
