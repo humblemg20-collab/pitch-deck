@@ -202,13 +202,29 @@ function apiGenerateStandardDeck(projectId, token) {
       if (!declaration) throw new Error('Confirmez la déclaration de sincérité avant de générer le deck.');
       if (!cleanString_(project.projectName)) throw new Error('Le nom du projet est obligatoire.');
 
-      const content = buildStandardDeckContent_(project);
-      const presentation = generateStandardPresentation_(project, content);
-      const pdf = exportPresentationToPdf_(project, presentation);
-      project.slidesUrl = presentation.slidesUrl;
-      project.pdfUrl = pdf.pdfUrl;
-      project.status = AG24_CONFIG.STATUS.GENERATED;
-      project = updateProject_(project);
+      let presentation = null;
+      let pdf = null;
+      try {
+        // A single generator creates Slides; exactly one exporter creates the PDF.
+        presentation = generateStandardPresentation_(project);
+        pdf = exportPresentationToPdf_(project, presentation);
+        project.slidesUrl = presentation.slidesUrl;
+        project.pdfUrl = pdf.pdfUrl;
+        project.status = AG24_CONFIG.STATUS.GENERATED;
+        project = updateProject_(project);
+      } catch (error) {
+        // Keep previously published URLs unchanged when a new run fails.
+        [pdf && pdf.pdfId, presentation && presentation.presentationId]
+          .filter(Boolean)
+          .forEach(function(fileId) {
+            try { DriveApp.getFileById(fileId).setTrashed(true); }
+            catch (cleanupError) { console.error('GENERATION_ROLLBACK_FAILED', cleanupError); }
+          });
+        logEvent_(project.projectId, 'DECK_GENERATION_FAILED', {
+          error: String(error && error.message || error).slice(0, 300)
+        });
+        throw error;
+      }
       logEvent_(project.projectId, 'DECK_GENERATED', {
         score: project.score.total,
         slidesUrl: project.slidesUrl,
