@@ -62,7 +62,7 @@ function apiCreateProject(input) {
         email: email,
         projectName: projectName,
         tokenHash: hashValue_(token),
-        codeHash: hashValue_(accessCode),
+        codeHash: hashValue_(projectId + '|' + accessCode),
         data: data,
         progress: calculateProgress_(data),
         score: null,
@@ -82,7 +82,7 @@ function apiCreateProject(input) {
       );
 
       if (typeof saveLeadEmail_ === 'function') {
-        saveLeadEmail_({
+        try { saveLeadEmail_({
           email: email,
           projectId: projectId,
           projectName: projectName,
@@ -90,7 +90,10 @@ function apiCreateProject(input) {
           status: 'QUESTIONNAIRE_EN_COURS',
           source: 'AfriGreen24 Pitch Studio',
           lastAction: 'Accès payé et projet créé'
-        });
+        }); } catch (crmError) {
+          console.error('LEAD_SYNC_NONBLOCKING', crmError);
+          logEvent_(projectId, 'LEAD_SYNC_FAILED', {});
+        }
       }
 
       const resumeUrl = createResumeUrl_(projectId, token);
@@ -126,6 +129,9 @@ function apiResumeProject(input) {
       const project = findProject_(cleanString_(payload.projectId, 100));
       if (!project) throw new Error('Projet introuvable.');
       assertResumeCredentials_(project, payload.email, payload.accessCode);
+      // Upgrade pre-existing six-digit legacy hashes after a successful resume.
+      project.codeHash = hashValue_(project.projectId + '|' +
+        cleanString_(payload.accessCode, 20));
       const token = randomToken_();
       project.tokenHash = hashValue_(token);
       updateProject_(project);
@@ -153,7 +159,16 @@ function apiSaveSection(input) {
       const project = findProject_(projectId);
       if (!project) throw new Error('Projet introuvable.');
       assertProjectToken_(project, token);
-      project.data[sectionId] = sanitizeObject_(payload.values || {});
+      const nextSection = sanitizeObject_(payload.values || {});
+      const changed = JSON.stringify(project.data[sectionId] || {}) !==
+        JSON.stringify(nextSection);
+      project.data[sectionId] = nextSection;
+      // A changed answer invalidates the old deck, but never deletes its archived files.
+      if (changed && (project.slidesUrl || project.pdfUrl)) {
+        project.slidesUrl = '';
+        project.pdfUrl = '';
+        logEvent_(projectId, 'DECK_INVALIDATED_BY_EDIT', { sectionId: sectionId });
+      }
       if (sectionId === 'identity' && project.data.identity.projectName) {
         project.projectName = cleanString_(project.data.identity.projectName, 180);
       }
