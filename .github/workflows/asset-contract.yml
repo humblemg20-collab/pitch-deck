@@ -29,3 +29,16 @@ jobs:
       - name: Verify conflict diagnostics stay metadata-only
         shell: pwsh
         run: ./tests/inspect-release-conflicts.test.ps1
+
+      - name: Export tested Apps Script source snapshot
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ag24-pitch-script-src
+          if-no-files-found: error
+          retention-days: 2
+          include-hidden-files: false
+          path: |
+            *.js
+            *.html
+            appsscript.json
