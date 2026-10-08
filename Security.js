@@ -6,11 +6,27 @@ function assertProjectToken_(project, token) {
 }
 
 function assertResumeCredentials_(project, email, accessCode) {
-  const emailMatches = cleanEmail_(project.email) === cleanEmail_(email);
-  const codeMatches = project.codeHash === hashValue_(cleanString_(accessCode, 20));
-  if (!emailMatches || !codeMatches) {
+  // The caller already holds a script lock; CacheService limits online guessing.
+  // Codes in legacy projects remain valid and are upgraded upon successful use.
+  const normalizedEmail = cleanEmail_(email);
+  const key = 'pd_resume_' + hashValue_(project.projectId + '|' + normalizedEmail)
+    .slice(0, 48);
+  const cache = CacheService.getScriptCache();
+  const attempts = Number(cache.get(key) || 0);
+  if (attempts >= 5) {
+    throw new Error('Trop de tentatives. Réessayez dans 15 minutes.');
+  }
+  const code = cleanString_(accessCode, 20);
+  const codeHash = hashValue_(project.projectId + '|' + code);
+  const legacyHash = hashValue_(code);
+  const valid = normalizedEmail === cleanEmail_(project.email) &&
+    (project.codeHash === codeHash || project.codeHash === legacyHash);
+  if (!valid) {
+    cache.put(key, String(attempts + 1), 15 * 60);
+    logEvent_(project.projectId, 'RESUME_CREDENTIALS_REJECTED', {});
     throw new Error('Identifiants de reprise incorrects.');
   }
+  cache.remove(key);
   return true;
 }
 
