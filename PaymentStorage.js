@@ -167,18 +167,27 @@ function verifyPitchAccess_(email, accessCode) {
 }
 
 function updatePaymentRow_(sheet, rowNumber, updates) {
+  // One row mutation instead of several partial setValue operations.
   const headers = paymentHeaders_(sheet);
+  const range = sheet.getRange(rowNumber, 1, 1, headers.length);
+  const row = range.getValues()[0];
   Object.keys(updates).forEach(function(key) {
     const columnIndex = headers.indexOf(key);
-    if (columnIndex >= 0) sheet.getRange(rowNumber, columnIndex + 1).setValue(updates[key]);
+    if (columnIndex >= 0) row[columnIndex] = updates[key];
   });
+  range.setValues([row]);
 }
 
 function consumePitchAccessForProject_(email, accessCode, projectId) {
+  const payment = findPaymentAccess_(email, accessCode);
+  // Idempotent retry of a previously committed payment -> project binding.
+  if (payment && String(payment.projectId || '') === String(projectId) &&
+      (String(payment.status).toUpperCase() === 'USED' ||
+       String(payment.accessUsed).toLowerCase() === 'true')) {
+    return { success: true, paymentId: String(payment.paymentId), projectId: projectId, status: 'USED' };
+  }
   const verification = verifyPitchAccess_(email, accessCode);
   if (!verification.valid) throw new Error(verification.message);
-
-  const payment = findPaymentAccess_(email, accessCode);
   const now = paymentNowIso_();
   const sheet = setupPaymentsSheet_();
 
