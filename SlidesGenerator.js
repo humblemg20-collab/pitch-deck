@@ -57,11 +57,9 @@ function generateStandardPresentation_(project) {
 
     const slidesFile = DriveApp.getFileById(presentationId);
 
-    moveGeneratedFileToOutputFolder_(slidesFile);
-
-    const pdfFile = exportStandardPresentationToPdf_(
-      presentationId,
-      presentationName
+    moveGeneratedFileToOutputFolder_(
+      slidesFile,
+      getOrCreateGeneratedFolder_(project)
     );
 
     return {
@@ -71,8 +69,6 @@ function generateStandardPresentation_(project) {
         'https://docs.google.com/presentation/d/' +
         presentationId +
         '/edit',
-      pdfId: pdfFile.getId(),
-      pdfUrl: pdfFile.getUrl(),
       fileName: presentationName,
       slideCount: slidesContent.length,
       generatedAt: new Date().toISOString()
@@ -1379,77 +1375,9 @@ function removeShapeBorder_(shape) {
   }
 }
 
-function exportStandardPresentationToPdf_(
-  presentationId,
-  presentationName
-) {
-  Utilities.sleep(1600);
-
-  const sourceFile = DriveApp.getFileById(
-    presentationId
-  );
-
-  const pdfBlob = sourceFile
-    .getAs(MimeType.PDF)
-    .setName(
-      presentationName + '.pdf'
-    );
-
-  const folder = getAg24OutputFolder_();
-
-  if (folder) {
-    return folder.createFile(pdfBlob);
-  }
-
-  return DriveApp.createFile(pdfBlob);
-}
-
-function moveGeneratedFileToOutputFolder_(file) {
-  const folder = getAg24OutputFolder_();
-
-  if (!folder || !file) return;
-
-  try {
-    folder.addFile(file);
-
-    const parents = file.getParents();
-
-    while (parents.hasNext()) {
-      const parent = parents.next();
-
-      if (parent.getId() !== folder.getId()) {
-        try {
-          parent.removeFile(file);
-        } catch (error) {
-          // Ignore.
-        }
-      }
-    }
-  } catch (error) {
-    // La génération continue.
-  }
-}
-
-function getAg24OutputFolder_() {
-  const config =
-    typeof AG24_CONFIG !== 'undefined'
-      ? AG24_CONFIG
-      : {};
-
-  const folderId =
-    config.OUTPUT_FOLDER_ID ||
-    config.PITCH_DECK_FOLDER_ID ||
-    config.GENERATED_FOLDER_ID ||
-    config.ROOT_FOLDER_ID ||
-    '';
-
-  if (!folderId) return null;
-
-  try {
-    return DriveApp.getFolderById(folderId);
-  } catch (error) {
-    return null;
-  }
+function moveGeneratedFileToOutputFolder_(file, folder) {
+  if (!folder || !file) throw new Error('Dossier généré manquant.');
+  file.moveTo(folder);
 }
 
 function getAg24ProjectName_(project) {
