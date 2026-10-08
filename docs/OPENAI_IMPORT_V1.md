@@ -47,7 +47,7 @@ OpenAI propose uniquement des valeurs qualitatives provenant du document.
 
 ### Prérequis, à valider dans l'environnement Apps Script de Pitch Deck
 
-- Secret `OPENAI_API_KEY` configuré côté serveur via une procédure sécurisée. Les propriétés de BUSINESS-PLAN sont propres à **son projet Apps Script** et ne sont pas automatiquement partagées.
+- `OPENAI_API_KEY` est **déjà déclarée présente** dans les paramètres du script par l'administrateur. Ne pas remplacer, recopier ou afficher la valeur. Vérifier uniquement sa disponibilité dans le contexte d'exécution du Pitch Deck, sans exposition du secret.
 - Modèle configuré avec accès API autorisé ; aucun secret ne doit être transmis au navigateur.
 - Accès Drive, Sheets, UrlFetchApp et Slides permis aux exécutions.
 - Schéma `ImportRuns` créé sans destruction des données existantes.
@@ -56,7 +56,8 @@ OpenAI propose uniquement des valeurs qualitatives provenant du document.
 ### Tests d'intégration avant fusion de la PR
 
 - [ ] CI GitHub Actions vert, tests de syntaxe et mocks.
-- [ ] Vérifier le statut `apiPitchOpenAIHealth` avec clé présente / absente.
+- [ ] Vérifier le statut `apiPitchOpenAIHealth` (présence côté serveur uniquement, aucune valeur secrète retournée).
+- [ ] Exécuter une fois `TEST_PITCH_OPENAI_CONNECTION_()` dans l'éditeur Apps Script du Pitch Deck : appel réel OpenAI sans document client, réponse limitée à un statut et au modèle, jamais la clé.
 - [ ] Analyser un PDF de test comportant faits, preuves et montants.
 - [ ] Analyser un DOCX de test et vérifier la qualité textuelle.
 - [ ] Refuser un document malformé, non autorisé ou trop volumineux.
