@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <?!= include('Styles'); ?>
+</head>
+
+<body>
+
+  <div id="app">
+    <div class="boot-screen">
+      <div class="brand-logo-wrap">
+        <img
+          src="https://img-thumb.mailinblue.com/10710656/images/content_library/original/6a681091b6fce5ac97246779.jpeg"
+          alt="AfriGreen24"
+          class="brand-logo"
+          referrerpolicy="no-referrer"
+        >
+      </div>
+
+      <div class="boot-progress">
+        <span></span>
+      </div>
+
+      <p>
+        Préparation de votre studio d’investissement…
+      </p>
+    </div>
+  </div>
+
+
+  <!-- Le détecteur doit être installé AVANT App.html -->
+  <script>
+    window.AG24_STARTUP_ERROR = '';
+
+    window.addEventListener('error', function(event) {
+      window.AG24_STARTUP_ERROR =
+        String(event.message || 'Erreur JavaScript') +
+        (event.filename
+          ? '\nFichier : ' + event.filename
+          : '') +
+        (event.lineno
+          ? '\nLigne : ' + event.lineno
+          : '') +
+        (event.colno
+          ? '\nColonne : ' + event.colno
+          : '');
+
+      console.error(
+        'Erreur AfriGreen24 :',
+        window.AG24_STARTUP_ERROR
+      );
+    });
+
+    window.addEventListener(
+      'unhandledrejection',
+      function(event) {
+        const reason = event.reason;
+
+        window.AG24_STARTUP_ERROR =
+          reason && reason.message
+            ? reason.message
+            : String(
+                reason ||
+                'Promesse JavaScript rejetée'
+              );
+
+        console.error(
+          'Promesse rejetée :',
+          window.AG24_STARTUP_ERROR
+        );
+      }
+    );
+
+    window.AG24_INITIAL_STATE = {};
+  </script>
+
+
+  <!-- App est chargé après le détecteur -->
+  <?!= include('App'); ?>
+
+
+  <script>
+    window.setTimeout(function() {
+      const root =
+        document.getElementById('app');
+
+      if (
+        root &&
+        root.textContent.includes(
+          'Préparation de votre studio'
+        )
+      ) {
+        const errorMessage =
+          window.AG24_STARTUP_ERROR ||
+          'App.html est vide, mal inclus ou son script ne s’exécute pas.';
+
+        root.innerHTML = `
+          <div
+            style="
+              min-height:100vh;
+              display:flex;
+              align-items:center;
+              justify-content:center;
+              padding:30px;
+              background:#071f30;
+              color:#ffffff;
+              font-family:Arial,sans-serif;
+            "
+          >
+            <div
+              style="
+                width:min(780px,100%);
+                padding:32px;
+                background:#123346;
+                border-radius:20px;
+              "
+            >
+              <h2 style="margin-top:0;">
+                Erreur JavaScript détectée
+              </h2>
+
+              <p style="color:#d6e1e7;">
+                Voici l’erreur qui empêche
+                AfriGreen24 Pitch Studio de démarrer :
+              </p>
+
+              <pre
+                style="
+                  white-space:pre-wrap;
+                  overflow-wrap:anywhere;
+                  padding:20px;
+                  border-radius:12px;
+                  background:#061923;
+                  color:#ffd77a;
+                  line-height:1.65;
+                "
+              >${errorMessage}</pre>
+            </div>
+          </div>
+        `;
+      }
+    }, 5000);
+  </script>
+
+</body>
+</html>

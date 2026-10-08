@@ -1,0 +1,2050 @@
+<script>
+(function() {
+  'use strict';
+
+  window.AG24_APP_SCRIPT_LOADED = true;
+
+  const state = {
+    bootstrap: null,
+    schema: [],
+    project: null,
+    token: '',
+    activeSection: 0,
+    entryMode: 'create',
+    saveTimer: null,
+    saving: false,
+    generationTimer: null,
+    resumeUrl: ''
+  };
+
+  let app = null;
+
+  function getAppRoot_() {
+    if (!app) {
+      app = document.getElementById('app');
+    }
+    return app;
+  }
+
+  function callServer(functionName, ...args) {
+    return new Promise((resolve, reject) => {
+      const runner = google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(error => reject(error));
+      runner[functionName](...args);
+    });
+  }
+
+  function withTimeout_(promise, milliseconds, message) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        window.setTimeout(() => {
+          reject(new Error(message || 'Le serveur met trop de temps à répondre.'));
+        }, milliseconds);
+      })
+    ]);
+  }
+
+  function unwrap(response) {
+    if (!response || !response.ok) {
+      const message = response && response.error ? response.error.message : 'Une erreur inattendue est survenue.';
+      throw new Error(message);
+    }
+    return response.data;
+  }
+
+  function escapeHtml(value) {
+    return String(value === null || value === undefined ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function getByPath(object, path) {
+    return String(path || '').split('.').reduce((current, key) => current && Object.prototype.hasOwnProperty.call(current, key) ? current[key] : undefined, object);
+  }
+
+  function isConditionMet(field) {
+    if (!field.condition) return true;
+    return String(getByPath(state.project ? state.project.data : {}, field.condition.path) || '') === String(field.condition.equals);
+  }
+
+  function buildResumeUrl() {
+    if (!state.project || !state.project.projectId || !state.token) return '';
+    const configuredBase = state.bootstrap && state.bootstrap.config ? state.bootstrap.config.webAppUrl : '';
+    const base = String(configuredBase || '').trim().split('?')[0];
+    if (!base) return '';
+    return base + '?project=' + encodeURIComponent(state.project.projectId) + '&token=' + encodeURIComponent(state.token);
+  }
+
+  function setUrl(projectId, token) {
+    if (!projectId || !token) return;
+    state.resumeUrl = buildResumeUrl();
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('project', projectId);
+      url.searchParams.set('token', token);
+      window.history.replaceState({}, '', url.toString());
+    } catch (error) {
+      // L'URL interne de l'iframe Apps Script n'est pas utilisée comme lien de reprise.
+    }
+  }
+
+  function clearUrl() {
+    state.resumeUrl = '';
+
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('project');
+      url.searchParams.delete('token');
+      window.history.replaceState({}, '', url.toString());
+    } catch (error) {
+      console.warn("Impossible de nettoyer l'URL interne Apps Script :", error);
+    }
+  }
+
+  function showToast(title, message, timeout) {
+    const existing = document.querySelector('.toast');
+    if (existing) existing.remove();
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `<strong>${escapeHtml(title)}</strong><span>${escapeHtml(message || '')}</span>`;
+    document.body.appendChild(toast);
+    window.setTimeout(() => toast.remove(), timeout || 3500);
+  }
+
+  function showFatal(message) {
+    const root = getAppRoot_();
+
+    if (!root) {
+      document.body.innerHTML =
+        '<div style="padding:24px;font-family:Arial,sans-serif">' +
+        '<h2>Erreur de chargement</h2>' +
+        '<p>' + escapeHtml(message || 'Élément #app introuvable.') + '</p>' +
+        '</div>';
+      return;
+    }
+
+    root.innerHTML = `
+      <div class="boot-screen">
+        <div class="brand-logo-wrap">
+          <img
+            src="https://img-thumb.mailinblue.com/10710656/images/content_library/original/6a681091b6fce5ac97246779.jpeg"
+            alt="AfriGreen24"
+            class="brand-logo"
+            referrerpolicy="no-referrer"
+          >
+        </div>
+        <h2>Configuration nécessaire</h2>
+        <p>${escapeHtml(message)}</p>
+      </div>`;
+  }
+
+  async function init() {
+    try {
+      app = document.getElementById('app');
+
+      if (!app) {
+        throw new Error(
+          'Le conteneur #app est introuvable dans la page principale.'
+        );
+      }
+
+      /*
+       * Affiche immédiatement la page commerciale.
+       * Ainsi, un problème de backend ne bloque plus l’écran
+       * sur « Préparation de votre studio… ».
+       */
+      renderLanding();
+
+      try {
+        state.bootstrap = unwrap(
+          await withTimeout_(
+            callServer('apiBootstrap'),
+            15000,
+            'Le serveur met trop de temps à répondre.'
+          )
+        );
+
+        state.schema = state.bootstrap.schema || [];
+      } catch (bootstrapError) {
+        console.error('Erreur apiBootstrap :', bootstrapError);
+
+        showToast(
+          'Connexion au serveur impossible',
+          bootstrapError && bootstrapError.message
+            ? bootstrapError.message
+            : 'Vérifiez Api.gs et le déploiement Apps Script.',
+          9000
+        );
+
+        return;
+      }
+
+      const initial = window.AG24_INITIAL_STATE || {};
+
+      if (initial.projectId && initial.token) {
+        try {
+          const loaded = unwrap(
+            await withTimeout_(
+              callServer(
+                'apiLoadProject',
+                initial.projectId,
+                initial.token
+              ),
+              15000,
+              'Le projet met trop de temps à se charger.'
+            )
+          );
+
+          state.project = loaded.project;
+          state.token = initial.token;
+          state.resumeUrl = buildResumeUrl();
+
+          renderJourney();
+          return;
+
+        } catch (error) {
+          showToast(
+            'Lien non valide',
+            error && error.message
+              ? error.message
+              : 'Impossible de reprendre ce projet.',
+            6000
+          );
+        }
+      }
+
+    } catch (error) {
+      showFatal(
+        error && error.message
+          ? error.message
+          : 'Erreur de chargement de l’application.'
+      );
+    }
+  }
+
+  function renderTopbar() {
+    return `
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-logo-wrap">
+            <img
+              src="https://img-thumb.mailinblue.com/10710656/images/content_library/original/6a681091b6fce5ac97246779.jpeg"
+              alt="Logo AfriGreen24"
+              class="brand-logo"
+              referrerpolicy="no-referrer"
+            >
+          </div>
+          <div class="brand-copy">
+            <strong>AfriGreen24 Pitch Studio</strong>
+            <span>Préparation structurée à l’investissement</span>
+          </div>
+        </div>
+        <div class="top-actions">
+          ${state.project ? `<button class="btn btn-ghost" data-action="copy-resume">Copier le lien privé</button>` : ''}
+          ${state.project ? `<button class="btn btn-secondary" data-action="analyze">Voir mon diagnostic</button>` : ''}
+        </div>
+      </header>`;
+  }
+
+ function renderLanding() {
+  state.project = null;
+  state.token = '';
+  clearUrl();
+
+  const root = getAppRoot_();
+
+  if (!root) {
+    throw new Error('Élément principal #app introuvable.');
+  }
+
+  root.innerHTML = `
+    <style>
+      .ag24-sales-page {
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top right, rgba(25, 143, 79, 0.14), transparent 35%),
+          linear-gradient(180deg, #f7fbf8 0%, #ffffff 46%, #f4f8f5 100%);
+        color: #17362b;
+      }
+
+      .ag24-sales-container {
+        width: min(1180px, calc(100% - 40px));
+        margin: 0 auto;
+      }
+
+      .ag24-sales-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 82px;
+        gap: 24px;
+      }
+
+      .ag24-sales-brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .ag24-sales-brand img {
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        object-fit: contain;
+        background: #ffffff;
+      }
+
+      .ag24-sales-brand strong {
+        display: block;
+        font-size: 1rem;
+        color: #12372a;
+      }
+
+      .ag24-sales-brand span {
+        display: block;
+        margin-top: 3px;
+        font-size: 0.78rem;
+        color: #668077;
+      }
+
+      .ag24-nav-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .ag24-nav-link {
+        border: 0;
+        background: transparent;
+        color: #155d3b;
+        font-weight: 700;
+        cursor: pointer;
+        padding: 12px 14px;
+      }
+
+      .ag24-sales-hero {
+        display: grid;
+        grid-template-columns: minmax(0, 1.08fr) minmax(340px, 0.72fr);
+        gap: 64px;
+        align-items: center;
+        padding: 74px 0 90px;
+      }
+
+      .ag24-sales-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 13px;
+        border: 1px solid rgba(21, 109, 67, 0.18);
+        border-radius: 999px;
+        background: rgba(255,255,255,0.82);
+        color: #176642;
+        font-size: 0.74rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .ag24-sales-hero h1 {
+        margin: 22px 0 22px;
+        max-width: 760px;
+        font-size: clamp(2.7rem, 5.5vw, 5.4rem);
+        line-height: 0.98;
+        letter-spacing: -0.055em;
+        color: #12372a;
+      }
+
+      .ag24-sales-hero h1 span {
+        color: #168553;
+      }
+
+      .ag24-sales-lead {
+        max-width: 720px;
+        margin: 0;
+        color: #577067;
+        font-size: 1.12rem;
+        line-height: 1.75;
+      }
+
+      .ag24-sales-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 32px;
+      }
+
+      .ag24-selar-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 56px;
+        padding: 0 25px;
+        border: 0;
+        border-radius: 14px;
+        background: #0f7548;
+        color: #ffffff;
+        text-decoration: none;
+        font-family: inherit;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 15px 35px rgba(15, 117, 72, 0.23);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .ag24-selar-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 20px 42px rgba(15, 117, 72, 0.28);
+      }
+
+      .ag24-access-button {
+        min-height: 56px;
+        padding: 0 23px;
+        border: 1px solid rgba(18, 55, 42, 0.18);
+        border-radius: 14px;
+        background: #ffffff;
+        color: #12372a;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .ag24-sales-trust {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        margin-top: 25px;
+        color: #61786f;
+        font-size: 0.88rem;
+      }
+
+      .ag24-sales-trust span::before {
+        content: "✓";
+        margin-right: 7px;
+        color: #168553;
+        font-weight: 900;
+      }
+
+      .ag24-product-preview {
+        position: relative;
+        padding: 28px;
+        border: 1px solid rgba(21, 109, 67, 0.14);
+        border-radius: 30px;
+        background: rgba(255,255,255,0.94);
+        box-shadow: 0 30px 70px rgba(28, 69, 50, 0.14);
+      }
+
+      .ag24-product-preview::before {
+        content: "";
+        position: absolute;
+        inset: -16px 35px auto;
+        height: 30px;
+        border-radius: 22px;
+        background: rgba(19, 132, 80, 0.08);
+        z-index: -1;
+      }
+
+      .ag24-preview-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e7efea;
+      }
+
+      .ag24-preview-top span {
+        font-size: 0.74rem;
+        color: #6e847c;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-weight: 800;
+      }
+
+      .ag24-preview-top strong {
+        color: #168553;
+      }
+
+      .ag24-preview-title {
+        margin: 24px 0 6px;
+        font-size: 1.65rem;
+        line-height: 1.16;
+        color: #12372a;
+      }
+
+      .ag24-preview-subtitle {
+        margin: 0 0 23px;
+        color: #6c8179;
+      }
+
+      .ag24-preview-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .ag24-preview-item {
+        display: grid;
+        grid-template-columns: 42px 1fr;
+        gap: 13px;
+        align-items: center;
+        padding: 13px;
+        border-radius: 16px;
+        background: #f6faf7;
+      }
+
+      .ag24-preview-number {
+        display: grid;
+        place-items: center;
+        width: 42px;
+        height: 42px;
+        border-radius: 13px;
+        background: #e1f3e8;
+        color: #137346;
+        font-weight: 900;
+      }
+
+      .ag24-preview-item strong {
+        display: block;
+        color: #183b2e;
+      }
+
+      .ag24-preview-item span {
+        display: block;
+        margin-top: 3px;
+        color: #71857e;
+        font-size: 0.83rem;
+      }
+
+      .ag24-section {
+        padding: 92px 0;
+      }
+
+      .ag24-section-light {
+        background: #ffffff;
+      }
+
+      .ag24-section-head {
+        max-width: 720px;
+        margin-bottom: 42px;
+      }
+
+      .ag24-section-head h2 {
+        margin: 12px 0;
+        font-size: clamp(2rem, 4vw, 3.4rem);
+        line-height: 1.08;
+        letter-spacing: -0.04em;
+        color: #12372a;
+      }
+
+      .ag24-section-head p {
+        margin: 0;
+        color: #657c73;
+        line-height: 1.7;
+      }
+
+      .ag24-benefit-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+      }
+
+      .ag24-benefit-card {
+        padding: 27px;
+        border: 1px solid #e2ece6;
+        border-radius: 23px;
+        background: #ffffff;
+      }
+
+      .ag24-benefit-card strong {
+        display: block;
+        margin-bottom: 10px;
+        color: #163c2e;
+        font-size: 1.08rem;
+      }
+
+      .ag24-benefit-card p {
+        margin: 0;
+        color: #6b8078;
+        line-height: 1.65;
+      }
+
+      .ag24-process-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 18px;
+      }
+
+      .ag24-process-card {
+        padding: 25px;
+        border-radius: 22px;
+        background: #12372a;
+        color: #ffffff;
+      }
+
+      .ag24-process-card span {
+        display: grid;
+        place-items: center;
+        width: 38px;
+        height: 38px;
+        margin-bottom: 18px;
+        border-radius: 12px;
+        background: #d7ab3e;
+        color: #12372a;
+        font-weight: 900;
+      }
+
+      .ag24-process-card strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 1rem;
+      }
+
+      .ag24-process-card p {
+        margin: 0;
+        color: rgba(255,255,255,0.7);
+        font-size: 0.88rem;
+        line-height: 1.55;
+      }
+
+      .ag24-access-section {
+        padding: 96px 0;
+        background:
+          linear-gradient(135deg, #10372a 0%, #0b5e3a 100%);
+      }
+
+      .ag24-access-grid {
+        display: grid;
+        grid-template-columns: 0.85fr 1.15fr;
+        gap: 52px;
+        align-items: start;
+      }
+
+      .ag24-access-copy {
+        padding-top: 35px;
+        color: #ffffff;
+      }
+
+      .ag24-access-copy h2 {
+        margin: 15px 0;
+        font-size: clamp(2.1rem, 4vw, 3.8rem);
+        line-height: 1.05;
+        letter-spacing: -0.045em;
+      }
+
+      .ag24-access-copy p {
+        color: rgba(255,255,255,0.72);
+        line-height: 1.75;
+      }
+
+      .ag24-access-copy ul {
+        margin: 25px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .ag24-access-copy li {
+        margin: 12px 0;
+        color: rgba(255,255,255,0.9);
+      }
+
+      .ag24-access-copy li::before {
+        content: "✓";
+        margin-right: 10px;
+        color: #e4ba50;
+        font-weight: 900;
+      }
+
+      .ag24-entry-card {
+        padding: 31px;
+        border-radius: 28px;
+        background: #ffffff;
+        box-shadow: 0 28px 65px rgba(0,0,0,0.22);
+      }
+
+      .ag24-entry-card h3 {
+        margin: 0 0 8px;
+        color: #12372a;
+        font-size: 1.55rem;
+      }
+
+      .ag24-entry-card > p {
+        margin: 0 0 22px;
+        color: #6b8078;
+      }
+
+      .ag24-entry-card .tabs {
+        margin-bottom: 24px;
+      }
+
+      .ag24-payment-note {
+        margin: 18px 0 0;
+        padding: 15px;
+        border-radius: 14px;
+        background: #f1f8f4;
+        color: #536e63;
+        font-size: 0.84rem;
+        line-height: 1.55;
+      }
+
+      .ag24-footer {
+        padding: 34px 0;
+        background: #08291f;
+        color: rgba(255,255,255,0.68);
+        text-align: center;
+        font-size: 0.84rem;
+      }
+
+      @media (max-width: 920px) {
+        .ag24-sales-hero,
+        .ag24-access-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .ag24-benefit-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        .ag24-process-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .ag24-sales-container {
+          width: min(100% - 24px, 1180px);
+        }
+
+        .ag24-sales-nav {
+          align-items: flex-start;
+          padding: 16px 0;
+        }
+
+        .ag24-sales-brand span {
+          display: none;
+        }
+
+        .ag24-nav-actions .ag24-selar-button {
+          display: none;
+        }
+
+        .ag24-sales-hero {
+          padding: 48px 0 68px;
+        }
+
+        .ag24-sales-hero h1 {
+          font-size: 2.75rem;
+        }
+
+        .ag24-sales-actions {
+          flex-direction: column;
+        }
+
+        .ag24-selar-button,
+        .ag24-access-button {
+          width: 100%;
+        }
+
+        .ag24-benefit-grid,
+        .ag24-process-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .ag24-entry-card {
+          padding: 23px 19px;
+        }
+      }
+    </style>
+
+    <div class="ag24-sales-page">
+
+      <header class="ag24-sales-container ag24-sales-nav">
+        <div class="ag24-sales-brand">
+          <img
+            src="https://img-thumb.mailinblue.com/10710656/images/content_library/original/6a681091b6fce5ac97246779.jpeg"
+            alt="AfriGreen24"
+            referrerpolicy="no-referrer"
+          >
+
+          <div>
+            <strong>AfriGreen24 Pitch Studio</strong>
+            <span>Votre projet, présenté avec clarté aux financeurs</span>
+          </div>
+        </div>
+
+        <div class="ag24-nav-actions">
+          <button
+            type="button"
+            class="ag24-nav-link"
+            data-entry="resume"
+          >
+            Reprendre un projet
+          </button>
+
+          <button
+            type="button"
+            class="ag24-selar-button"
+            data-selar-payment
+          >
+            Acheter mon accès
+          </button>
+        </div>
+      </header>
+
+
+      <main>
+
+        <section class="ag24-sales-container ag24-sales-hero">
+
+          <div>
+            <span class="ag24-sales-badge">
+              Générateur professionnel de Pitch Deck
+            </span>
+
+            <h1>
+              Transformez votre projet en un
+              <span>Pitch Deck convaincant.</span>
+            </h1>
+
+            <p class="ag24-sales-lead">
+              AfriGreen24 Pitch Studio vous guide étape par étape,
+              analyse la solidité de votre projet et génère une présentation
+              structurée pour les investisseurs, banques, partenaires
+              et programmes de financement.
+            </p>
+
+            <div class="ag24-sales-actions">
+             <button
+                type="button"
+                class="ag24-selar-button"
+                data-selar-payment
+              >
+                Payer sur Selar et obtenir mon accès
+              </button>
+
+              <button
+                type="button"
+                class="ag24-access-button"
+                data-scroll-access
+              >
+                J’ai déjà payé
+              </button>
+            </div>
+
+            <div class="ag24-sales-trust">
+              <span>Paiement sécurisé sur Selar</span>
+              <span>Google Slides modifiable</span>
+              <span>Export PDF professionnel</span>
+            </div>
+          </div>
+
+
+          <aside class="ag24-product-preview">
+            <div class="ag24-preview-top">
+              <span>Livrable final</span>
+              <strong>Pitch Deck professionnel</strong>
+            </div>
+
+            <h2 class="ag24-preview-title">
+              Une présentation claire, structurée et prête à être partagée.
+            </h2>
+
+            <p class="ag24-preview-subtitle">
+              Vos réponses sont transformées en une narration cohérente.
+            </p>
+
+            <div class="ag24-preview-list">
+
+              <div class="ag24-preview-item">
+                <div class="ag24-preview-number">12</div>
+                <div>
+                  <strong>Slides essentielles</strong>
+                  <span>Problème, solution, marché, modèle économique et financement.</span>
+                </div>
+              </div>
+
+              <div class="ag24-preview-item">
+                <div class="ag24-preview-number">100</div>
+                <div>
+                  <strong>Score de préparation</strong>
+                  <span>Mesurez la maturité de votre projet avant de le présenter.</span>
+                </div>
+              </div>
+
+              <div class="ag24-preview-item">
+                <div class="ag24-preview-number">2</div>
+                <div>
+                  <strong>Formats disponibles</strong>
+                  <span>Google Slides modifiable et document PDF.</span>
+                </div>
+              </div>
+
+            </div>
+          </aside>
+
+        </section>
+
+
+        <section class="ag24-section ag24-section-light">
+          <div class="ag24-sales-container">
+
+            <div class="ag24-section-head">
+              <span class="ag24-sales-badge">Ce que vous obtenez</span>
+
+              <h2>
+                Bien plus qu’un simple modèle de présentation.
+              </h2>
+
+              <p>
+                Le système vous accompagne dans la structuration du projet,
+                détecte les informations manquantes et construit une base
+                professionnelle à présenter aux financeurs.
+              </p>
+            </div>
+
+            <div class="ag24-benefit-grid">
+
+              <article class="ag24-benefit-card">
+                <strong>Questionnaire guidé</strong>
+                <p>
+                  Un parcours structuré pour expliquer votre vision,
+                  votre marché, votre équipe et votre besoin de financement.
+                </p>
+              </article>
+
+              <article class="ag24-benefit-card">
+                <strong>Diagnostic du projet</strong>
+                <p>
+                  Le système mesure votre niveau de préparation
+                  et signale les incohérences importantes.
+                </p>
+              </article>
+
+              <article class="ag24-benefit-card">
+                <strong>Narration investisseur</strong>
+                <p>
+                  Vos informations sont organisées dans un ordre
+                  clair, logique et convaincant.
+                </p>
+              </article>
+
+              <article class="ag24-benefit-card">
+                <strong>Présentation en 12 slides</strong>
+                <p>
+                  Une structure complète couvrant les principales
+                  attentes des investisseurs et partenaires.
+                </p>
+              </article>
+
+              <article class="ag24-benefit-card">
+                <strong>Google Slides modifiable</strong>
+                <p>
+                  Vous pouvez personnaliser les textes, images
+                  et données avant vos présentations.
+                </p>
+              </article>
+
+              <article class="ag24-benefit-card">
+                <strong>PDF professionnel</strong>
+                <p>
+                  Une version prête à être envoyée par e-mail
+                  ou jointe à un dossier de financement.
+                </p>
+              </article>
+
+            </div>
+          </div>
+        </section>
+
+
+        <section class="ag24-section">
+          <div class="ag24-sales-container">
+
+            <div class="ag24-section-head">
+              <span class="ag24-sales-badge">Comment cela fonctionne</span>
+
+              <h2>
+                De votre paiement à votre présentation.
+              </h2>
+            </div>
+
+            <div class="ag24-process-grid">
+
+              <article class="ag24-process-card">
+                <span>1</span>
+                <strong>Payez sur Selar</strong>
+                <p>
+                  Effectuez votre achat à partir de la page de paiement sécurisée.
+                </p>
+              </article>
+
+              <article class="ag24-process-card">
+                <span>2</span>
+                <strong>Recevez votre code</strong>
+                <p>
+                  Après validation, votre code personnel d’accès vous est transmis.
+                </p>
+              </article>
+
+              <article class="ag24-process-card">
+                <span>3</span>
+                <strong>Décrivez votre projet</strong>
+                <p>
+                  Répondez au questionnaire et sauvegardez votre progression.
+                </p>
+              </article>
+
+              <article class="ag24-process-card">
+                <span>4</span>
+                <strong>Générez votre Pitch Deck</strong>
+                <p>
+                  Téléchargez les versions Google Slides et PDF.
+                </p>
+              </article>
+
+            </div>
+          </div>
+        </section>
+
+
+        <section
+          id="ag24-access"
+          class="ag24-access-section"
+        >
+          <div class="ag24-sales-container ag24-access-grid">
+
+            <div class="ag24-access-copy">
+              <span class="ag24-sales-badge">
+                Accès au studio
+              </span>
+
+              <h2>
+                Vous avez déjà effectué votre paiement ?
+              </h2>
+
+              <p>
+                Entrez l’adresse e-mail utilisée lors de votre paiement
+                ainsi que votre code d’accès personnel pour commencer
+                la création de votre Pitch Deck.
+              </p>
+
+              <ul>
+                <li>Un code personnel et utilisable une seule fois</li>
+                <li>Sauvegarde automatique de votre progression</li>
+                <li>Lien privé pour reprendre votre projet</li>
+              </ul>
+            </div>
+
+
+            <div class="ag24-entry-card">
+              <h3>
+                ${state.entryMode === 'create'
+                  ? 'Commencer mon Pitch Deck'
+                  : 'Reprendre mon projet'}
+              </h3>
+
+              <p>
+                ${state.entryMode === 'create'
+                  ? 'Votre paiement doit avoir été validé avant la création du projet.'
+                  : 'Utilisez votre identifiant et votre code de reprise.'}
+              </p>
+
+              <div class="tabs">
+                <button
+                  type="button"
+                  class="tab ${state.entryMode === 'create' ? 'active' : ''}"
+                  data-entry="create"
+                >
+                  J’ai payé
+                </button>
+
+                <button
+                  type="button"
+                  class="tab ${state.entryMode === 'resume' ? 'active' : ''}"
+                  data-entry="resume"
+                >
+                  Reprendre
+                </button>
+              </div>
+
+              ${state.entryMode === 'create'
+                ? renderCreateForm()
+                : renderResumeForm()}
+
+              ${
+                state.entryMode === 'create'
+                  ? `
+                    <div class="ag24-payment-note">
+                      Vous n’avez pas encore de code ?
+                      Effectuez d’abord votre paiement sur Selar,
+                      puis revenez sur cette page avec votre e-mail
+                      et votre code d’accès.
+                    </div>
+                  `
+                  : ''
+              }
+            </div>
+
+          </div>
+        </section>
+
+      </main>
+
+
+      <footer class="ag24-footer">
+        AfriGreen24 Pitch Studio — Présentation structurée à l’investissement
+      </footer>
+
+    </div>
+  `;
+
+  bindLandingEvents();
+}
+
+function renderCreateForm() {
+  return `
+    <form id="create-form">
+
+      <div class="field">
+        <label>
+          Nom du projet
+          <span class="required">*</span>
+        </label>
+
+        <input
+          name="projectName"
+          type="text"
+          required
+          maxlength="180"
+          placeholder="Exemple : SolarFresh Africa"
+        >
+      </div>
+
+
+      <div class="field">
+        <label>
+          E-mail utilisé pour le paiement
+          <span class="required">*</span>
+        </label>
+
+        <input
+          name="email"
+          type="email"
+          required
+          autocomplete="email"
+          placeholder="vous@entreprise.com"
+        >
+
+        <div class="field-help">
+          Utilisez exactement l’adresse e-mail associée à votre paiement Selar.
+        </div>
+      </div>
+
+
+      <div class="field">
+        <label>
+          Code d’accès au Pitch Deck
+          <span class="required">*</span>
+        </label>
+
+        <input
+          name="paymentAccessCode"
+          type="text"
+          required
+          autocomplete="off"
+          maxlength="32"
+          placeholder="AG24-PD-XXXXXXXXXX"
+        >
+
+        <div class="field-help">
+          Ce code est transmis après validation de votre paiement.
+        </div>
+      </div>
+
+
+      <div class="checkbox-line">
+        <input
+          id="consent"
+          name="consent"
+          type="checkbox"
+          required
+        >
+
+        <label for="consent">
+          J’accepte que mes réponses soient enregistrées
+          afin de générer mon Pitch Deck.
+        </label>
+      </div>
+
+
+      <button
+        class="btn btn-primary btn-large"
+        type="submit"
+        style="width:100%;margin-top:24px;"
+      >
+        Vérifier mon accès et commencer
+      </button>
+
+
+      <button
+        type="button"
+        class="btn btn-secondary"
+        data-selar-payment
+        style="
+          width:100%;
+          margin-top:12px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          cursor:pointer;
+        "
+      >
+        Je n’ai pas encore payé — Acheter mon accès
+      </button>
+
+    </form>
+  `;
+}
+
+  function renderResumeForm() {
+    return `
+      <form id="resume-form">
+        <div class="field">
+          <label>Identifiant du projet <span class="required">*</span></label>
+          <input name="projectId" type="text" required placeholder="AG24-PD-20260730-XXXXXXX">
+        </div>
+        <div class="field">
+          <label>Adresse e-mail <span class="required">*</span></label>
+          <input name="email" type="email" required placeholder="vous@entreprise.com">
+        </div>
+        <div class="field">
+          <label>Code de reprise <span class="required">*</span></label>
+          <input name="accessCode" type="text" required maxlength="12" inputmode="numeric" placeholder="000000">
+        </div>
+        <button class="btn btn-primary btn-large" type="submit" style="width:100%;">Reprendre mon projet</button>
+      </form>`;
+  }
+  function unwrapPaymentResponse(response) {
+    if (response && response.ok === true) {
+      return unwrap(response);
+    }
+
+    if (response && response.success === true) {
+      return response.data;
+    }
+
+    const message =
+      response &&
+      response.error &&
+      response.error.message
+        ? response.error.message
+        : response && typeof response.error === 'string'
+          ? response.error
+          : 'Une erreur est survenue pendant la vérification du paiement.';
+
+    throw new Error(message);
+  }
+
+  async function verifyPaymentAccessBeforeCreation(
+    email,
+    paymentAccessCode
+  ) {
+    const response = await callServer(
+      'apiVerifyPitchAccess',
+      email,
+      paymentAccessCode
+    );
+
+    const verification = unwrapPaymentResponse(response);
+
+    if (!verification || !verification.valid) {
+      throw new Error(
+        verification && verification.message
+          ? verification.message
+          : 'Votre accès au Pitch Deck n’est pas valide.'
+      );
+    }
+
+    return verification;
+  }
+
+ function openSelarPaymentPage() {
+  const paymentUrl = 'https://selar.com/l1k743881t';
+
+  const link = document.createElement('a');
+
+  link.href = paymentUrl;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+function bindLandingEvents() {
+  document
+    .querySelectorAll('[data-selar-payment]')
+    .forEach(button => {
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        openSelarPaymentPage();
+      });
+    });
+
+  document
+    .querySelectorAll('[data-scroll-access]')
+    .forEach(button => {
+      button.addEventListener('click', () => {
+        state.entryMode = 'create';
+
+        const accessSection =
+          document.getElementById('ag24-access');
+
+        if (accessSection) {
+          accessSection.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+
+
+  document
+    .querySelectorAll('[data-entry]')
+    .forEach(button => {
+      button.addEventListener('click', () => {
+        state.entryMode = button.dataset.entry;
+
+        renderLanding();
+
+        window.setTimeout(() => {
+          const accessSection =
+            document.getElementById('ag24-access');
+
+          if (accessSection) {
+            accessSection.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start'
+            });
+          }
+        }, 50);
+      });
+    });
+
+
+  const createForm =
+    document.getElementById('create-form');
+
+  if (createForm) {
+    createForm.addEventListener(
+      'submit',
+      async event => {
+        event.preventDefault();
+
+        const button = createForm.querySelector(
+          'button[type="submit"]'
+        );
+
+        const originalText = button
+          ? button.textContent
+          : 'Vérifier mon accès et commencer';
+
+        if (button) {
+          button.disabled = true;
+          button.textContent =
+            'Vérification du paiement…';
+        }
+
+        try {
+          const form = new FormData(createForm);
+
+          const projectName = String(
+            form.get('projectName') || ''
+          ).trim();
+
+          const email = String(
+            form.get('email') || ''
+          )
+            .trim()
+            .toLowerCase();
+
+          const paymentAccessCode = String(
+            form.get('paymentAccessCode') || ''
+          )
+            .trim()
+            .toUpperCase();
+
+          const consent = Boolean(
+            form.get('consent')
+          );
+
+
+          if (!projectName) {
+            throw new Error(
+              'Veuillez saisir le nom de votre projet.'
+            );
+          }
+
+          if (!email) {
+            throw new Error(
+              'Veuillez saisir l’e-mail utilisé pour le paiement.'
+            );
+          }
+
+          if (!paymentAccessCode) {
+            throw new Error(
+              'Veuillez saisir votre code d’accès.'
+            );
+          }
+
+          if (!consent) {
+            throw new Error(
+              'Vous devez accepter la déclaration avant de continuer.'
+            );
+          }
+
+
+          await verifyPaymentAccessBeforeCreation(
+            email,
+            paymentAccessCode
+          );
+
+
+          if (button) {
+            button.textContent =
+              'Création de votre espace…';
+          }
+
+
+          const result = unwrap(
+            await callServer(
+              'apiCreateProject',
+              {
+                projectName: projectName,
+                email: email,
+                paymentAccessCode: paymentAccessCode,
+                consent: consent
+              }
+            )
+          );
+
+
+          state.project = result.project;
+          state.token = result.token;
+          state.resumeUrl = result.resumeUrl || '';
+          state.activeSection = 0;
+
+
+          setUrl(
+            state.project.projectId,
+            state.token
+          );
+
+
+          renderJourney();
+
+
+          showToast(
+            'Espace créé',
+            `Votre code de reprise est ${result.accessCode}. Il vous a également été envoyé par e-mail.`,
+            8000
+          );
+
+        } catch (error) {
+          showToast(
+            'Accès impossible',
+            error && error.message
+              ? error.message
+              : 'Une erreur est survenue.',
+            6000
+          );
+
+          if (button) {
+            button.disabled = false;
+            button.textContent = originalText;
+          }
+        }
+      }
+    );
+  }
+
+
+  const resumeForm =
+    document.getElementById('resume-form');
+
+  if (resumeForm) {
+    resumeForm.addEventListener(
+      'submit',
+      async event => {
+        event.preventDefault();
+
+        const button = resumeForm.querySelector(
+          'button[type="submit"]'
+        );
+
+        button.disabled = true;
+        button.textContent =
+          'Ouverture du projet…';
+
+        try {
+          const form = new FormData(resumeForm);
+
+          const result = unwrap(
+            await callServer(
+              'apiResumeProject',
+              {
+                projectId: form.get('projectId'),
+                email: form.get('email'),
+                accessCode: form.get('accessCode')
+              }
+            )
+          );
+
+          state.project = result.project;
+          state.token = result.token;
+          state.resumeUrl = result.resumeUrl || '';
+          state.activeSection = 0;
+
+          setUrl(
+            state.project.projectId,
+            state.token
+          );
+
+          renderJourney();
+
+        } catch (error) {
+          showToast(
+            'Reprise impossible',
+            error.message,
+            5000
+          );
+
+          button.disabled = false;
+          button.textContent =
+            'Reprendre mon projet';
+        }
+      }
+    );
+  }
+}
+
+  function renderJourney() {
+    if (!state.project) return renderLanding();
+    const progress = state.project.progress || { percent: 0, sections: {} };
+    const section = state.schema[state.activeSection];
+    const root = getAppRoot_();
+
+    if (!root) {
+      throw new Error('Élément principal #app introuvable.');
+    }
+
+    root.innerHTML = `
+      <div class="journey-shell">
+        ${renderTopbar()}
+        <div class="journey-grid">
+          <aside class="sidebar">
+            <div class="project-mini">
+              <span>PROJET EN COURS</span>
+              <strong>${escapeHtml(state.project.projectName)}</strong>
+              <div class="progress-overall">
+                <div class="progress-row"><span>Progression globale</span><strong>${progress.percent || 0}%</strong></div>
+                <div class="progress-track"><div class="progress-fill" style="width:${progress.percent || 0}%"></div></div>
+              </div>
+            </div>
+            <nav class="step-list">
+              ${state.schema.map((item, index) => renderStep(item, index, progress)).join('')}
+            </nav>
+          </aside>
+          <main class="workspace">
+            <div class="workspace-inner">
+              <header class="section-head">
+                <div class="section-count">Étape ${state.activeSection + 1} sur ${state.schema.length}</div>
+                <h2>${escapeHtml(section.title)}</h2>
+                <p>${escapeHtml(section.subtitle)}</p>
+              </header>
+              <section class="question-card">
+                <div class="question-grid">
+                  ${section.fields.filter(isConditionMet).map(field => renderField(section.id, field)).join('')}
+                </div>
+              </section>
+              <div class="card-actions">
+                <button class="btn btn-secondary" data-action="previous" ${state.activeSection === 0 ? 'disabled' : ''}>Étape précédente</button>
+                <div id="save-state" class="save-state">Toutes les réponses sont enregistrées automatiquement.</div>
+                <button class="btn btn-primary" data-action="next">${state.activeSection === state.schema.length - 1 ? 'Analyser mon projet' : 'Continuer'}</button>
+              </div>
+            </div>
+          </main>
+        </div>
+      </div>`;
+    bindJourneyEvents();
+  }
+
+  function renderStep(section, index, progress) {
+    const status = progress.sections && progress.sections[section.id] ? progress.sections[section.id] : { status: 'À commencer', percent: 0 };
+    return `
+      <button class="step-item ${index === state.activeSection ? 'active' : ''}" data-step="${index}">
+        <span class="step-index">${String(index + 1).padStart(2, '0')}</span>
+        <span class="step-copy"><strong>${escapeHtml(section.title)}</strong><span>${escapeHtml(status.status)}</span></span>
+        <span class="step-dot ${status.percent === 100 ? 'complete' : ''}"></span>
+      </button>`;
+  }
+
+  function renderField(sectionId, field) {
+    const path = `${sectionId}.${field.id}`;
+    const value = getByPath(state.project.data || {}, path);
+    const required = field.required ? '<span class="required">*</span>' : '';
+    const help = field.help ? `<div class="field-help">${escapeHtml(field.help)}</div>` : '';
+    let control = '';
+
+    if (field.type === 'textarea') {
+      control = `<textarea id="${path}" data-field="${field.id}" data-section="${sectionId}" maxlength="${field.maxLength || 6000}" placeholder="${escapeHtml(field.placeholder || '')}">${escapeHtml(value || '')}</textarea>`;
+    } else if (field.type === 'select') {
+      control = `<select id="${path}" data-field="${field.id}" data-section="${sectionId}">
+        <option value="">Sélectionner</option>
+        ${(field.options || []).map(option => `<option value="${escapeHtml(option)}" ${String(value || '') === String(option) ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}
+      </select>`;
+    } else if (field.type === 'checkbox') {
+      return `
+        <div class="field" data-field-wrap="${field.id}">
+          <div class="checkbox-line">
+            <input id="${path}" data-field="${field.id}" data-section="${sectionId}" type="checkbox" ${value === true || value === 'true' ? 'checked' : ''}>
+            <label for="${path}">${escapeHtml(field.label)} ${required}</label>
+          </div>
+          ${help}
+          <div class="field-error" data-error-for="${field.id}"></div>
+        </div>`;
+    } else {
+      control = `<input id="${path}" data-field="${field.id}" data-section="${sectionId}" type="${field.type || 'text'}" value="${escapeHtml(value || '')}" placeholder="${escapeHtml(field.placeholder || '')}">`;
+    }
+
+    return `
+      <div class="field" data-field-wrap="${field.id}">
+        <label for="${path}">${escapeHtml(field.label)} ${required}</label>
+        ${control}
+        ${help}
+        <div class="field-error" data-error-for="${field.id}"></div>
+      </div>`;
+  }
+
+  function bindJourneyEvents() {
+    document.querySelectorAll('[data-step]').forEach(button => {
+      button.addEventListener('click', async () => {
+        await saveCurrentSection(false);
+        state.activeSection = Number(button.dataset.step);
+        renderJourney();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+
+    document.querySelectorAll('[data-field]').forEach(input => {
+      const handler = () => {
+        updateLocalSectionValue(input);
+        scheduleSave();
+        if (input.tagName === 'SELECT') renderJourneyKeepingFocus();
+      };
+      input.addEventListener('input', handler);
+      input.addEventListener('change', handler);
+    });
+
+    const previous = document.querySelector('[data-action="previous"]');
+    if (previous) previous.addEventListener('click', async () => {
+      await saveCurrentSection(false);
+      state.activeSection = Math.max(0, state.activeSection - 1);
+      renderJourney();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    const next = document.querySelector('[data-action="next"]');
+    if (next) next.addEventListener('click', async () => {
+      if (!validateCurrentSection()) {
+        showToast('Informations à compléter', 'Vérifiez les champs obligatoires de cette étape.', 4000);
+        return;
+      }
+      next.disabled = true;
+      try {
+        await saveCurrentSection(true);
+        if (state.activeSection === state.schema.length - 1) {
+          await analyzeAndRender();
+        } else {
+          state.activeSection += 1;
+          renderJourney();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      } catch (error) {
+        showToast('Enregistrement impossible', error.message, 5000);
+        next.disabled = false;
+      }
+    });
+
+    bindTopbarEvents();
+  }
+
+  function renderJourneyKeepingFocus() {
+    const activeId = document.activeElement ? document.activeElement.id : '';
+    renderJourney();
+    if (activeId) {
+      const element = document.getElementById(activeId);
+      if (element) element.focus();
+    }
+  }
+
+  function bindTopbarEvents() {
+    const copy = document.querySelector('[data-action="copy-resume"]');
+    if (copy) copy.addEventListener('click', async () => {
+      const resumeUrl = state.resumeUrl || buildResumeUrl();
+      if (!resumeUrl) {
+        showToast('Lien indisponible', 'Redéployez l’application Web puis relancez la fonction setupAfriGreen24PitchDeck().', 6500);
+        return;
+      }
+      state.resumeUrl = resumeUrl;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(resumeUrl);
+        } else {
+          const helper = document.createElement('textarea');
+          helper.value = resumeUrl;
+          helper.setAttribute('readonly', '');
+          helper.style.position = 'fixed';
+          helper.style.opacity = '0';
+          document.body.appendChild(helper);
+          helper.select();
+          document.execCommand('copy');
+          helper.remove();
+        }
+        showToast('Lien privé copié', 'Le lien /exec du projet a été copié. Conservez-le dans un espace privé.', 4000);
+      } catch (error) {
+        window.prompt('Copiez votre lien privé :', resumeUrl);
+      }
+    });
+    const analyze = document.querySelector('[data-action="analyze"]');
+    if (analyze) analyze.addEventListener('click', analyzeAndRender);
+  }
+
+  function updateLocalSectionValue(input) {
+    const sectionId = input.dataset.section;
+    const fieldId = input.dataset.field;
+    state.project.data = state.project.data || {};
+    state.project.data[sectionId] = state.project.data[sectionId] || {};
+    state.project.data[sectionId][fieldId] = input.type === 'checkbox' ? input.checked : input.value;
+  }
+
+  function collectCurrentSection() {
+    const section = state.schema[state.activeSection];
+    const values = {};
+    document.querySelectorAll(`[data-section="${section.id}"]`).forEach(input => {
+      values[input.dataset.field] = input.type === 'checkbox' ? input.checked : input.value;
+    });
+    return values;
+  }
+
+  function scheduleSave() {
+    window.clearTimeout(state.saveTimer);
+    const indicator = document.getElementById('save-state');
+    if (indicator) {
+      indicator.textContent = 'Modifications en attente…';
+      indicator.className = 'save-state';
+    }
+    state.saveTimer = window.setTimeout(() => saveCurrentSection(false), 900);
+  }
+
+  async function saveCurrentSection(showEncouragement) {
+    if (!state.project || state.saving) return;
+    const section = state.schema[state.activeSection];
+    const values = collectCurrentSection();
+    state.saving = true;
+    const indicator = document.getElementById('save-state');
+    if (indicator) {
+      indicator.textContent = 'Enregistrement…';
+      indicator.className = 'save-state';
+    }
+    try {
+      const result = unwrap(await callServer('apiSaveSection', {
+        projectId: state.project.projectId,
+        token: state.token,
+        sectionId: section.id,
+        values
+      }));
+      state.project = result.project;
+      if (indicator) {
+        indicator.textContent = 'Toutes vos réponses sont enregistrées.';
+        indicator.className = 'save-state saved';
+      }
+      if (showEncouragement) showToast('Étape enregistrée', result.encouragement, 3500);
+    } catch (error) {
+      if (indicator) {
+        indicator.textContent = 'Échec de l’enregistrement.';
+        indicator.className = 'save-state error';
+      }
+      throw error;
+    } finally {
+      state.saving = false;
+    }
+  }
+
+  function validateCurrentSection() {
+    const section = state.schema[state.activeSection];
+    let valid = true;
+    section.fields.filter(isConditionMet).forEach(field => {
+      if (!field.required) return;
+      const input = document.querySelector(`[data-section="${section.id}"][data-field="${field.id}"]`);
+      const error = document.querySelector(`[data-error-for="${field.id}"]`);
+      const filled = input && (input.type === 'checkbox' ? input.checked : String(input.value || '').trim().length > 0);
+      if (!filled) {
+        valid = false;
+        if (error) error.textContent = 'Cette information est nécessaire pour continuer.';
+      } else if (error) {
+        error.textContent = '';
+      }
+    });
+    return valid;
+  }
+
+  async function analyzeAndRender() {
+    try {
+      const result = unwrap(await callServer('apiAnalyzeProject', state.project.projectId, state.token));
+      state.project = result.project;
+      renderResults();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (error) {
+      showToast('Analyse impossible', error.message, 5000);
+    }
+  }
+
+  function renderResults() {
+    const score = state.project.score || { total: 0, label: 'À analyser', categories: [], criticalCount: 0, eligibleForFinancable: false };
+    const alerts = state.project.alerts || [];
+    const importantAlerts = alerts.filter(alert => alert.level !== 'information').slice(0, 10);
+    const critical = alerts.filter(alert => alert.level === 'critique').length;
+    const root = getAppRoot_();
+
+    if (!root) {
+      throw new Error('Élément principal #app introuvable.');
+    }
+
+    root.innerHTML = `
+      <div class="journey-shell">
+        ${renderTopbar()}
+        <main class="workspace">
+          <div class="review-panel">
+            <section class="score-hero">
+              <div class="score-ring" style="--score-deg:${Math.max(0, Math.min(100, score.total || 0)) * 3.6}deg">
+                <div class="score-value"><strong>${score.total || 0}</strong><span>sur 100</span></div>
+              </div>
+              <div class="score-copy">
+                <span class="eyebrow">Pitch Readiness Score</span>
+                <h2>${escapeHtml(score.label || '')}</h2>
+                <p>${escapeHtml(score.interpretation || '')}</p>
+                <div class="score-meta">
+                  <span class="pill">${state.project.progress ? state.project.progress.percent : 0}% du questionnaire</span>
+                  <span class="pill">${critical} alerte(s) critique(s)</span>
+                  <span class="pill">${score.eligibleForFinancable ? 'Éligible au Finançable' : 'Standard recommandé'}</span>
+                </div>
+              </div>
+            </section>
+
+            <div class="result-grid">
+              <section class="panel">
+                <h3>Recommandations prioritaires</h3>
+                <div class="alert-list">
+                  ${importantAlerts.length ? importantAlerts.map(renderAlert).join('') : '<p class="empty-note">Aucune alerte importante détectée. Une relecture humaine reste recommandée.</p>'}
+                </div>
+              </section>
+              <section class="panel">
+                <h3>Détail du score</h3>
+                <div class="category-list">
+                  ${(score.categories || []).map(renderCategory).join('')}
+                </div>
+              </section>
+            </div>
+
+            <section class="generate-card">
+              <div>
+                <h3>${state.project.slidesUrl ? 'Votre Pitch Deck Standard est prêt' : 'Générer votre Pitch Deck Standard'}</h3>
+                <p>${state.project.slidesUrl ? 'Retrouvez les deux formats ci-dessous. Vérifiez chaque donnée avant toute présentation.' : 'Le système va structurer vos réponses, créer les 12 slides et exporter le PDF.'}</p>
+                ${state.project.slidesUrl ? `
+                  <div class="downloads">
+                    <a class="download-card" href="${escapeHtml(state.project.slidesUrl)}" target="_blank"><strong>Google Slides</strong><span>Version modifiable</span></a>
+                    <a class="download-card" href="${escapeHtml(state.project.pdfUrl)}" target="_blank"><strong>Document PDF</strong><span>Version de présentation</span></a>
+                  </div>` : ''}
+              </div>
+              <div>
+                ${state.project.slidesUrl
+                  ? '<button class="btn btn-secondary" data-action="edit-project">Modifier mes réponses</button>'
+                  : '<button class="btn btn-primary btn-large" data-action="generate-deck">Générer maintenant</button>'}
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>`;
+    bindResultEvents();
+    bindTopbarEvents();
+  }
+
+  function renderAlert(alert) {
+    return `
+      <div class="alert-item ${escapeHtml(alert.level || '')}">
+        <strong>${escapeHtml(alert.title || '')}</strong>
+        <p>${escapeHtml(alert.message || '')}</p>
+        <small>${escapeHtml(alert.recommendation || '')}</small>
+      </div>`;
+  }
+
+  function renderCategory(item) {
+    const percent = item.weight ? Math.round((item.points / item.weight) * 100) : 0;
+    return `
+      <div class="category-row">
+        <span>${escapeHtml(item.label)}</span>
+        <strong>${item.points}/${item.weight}</strong>
+        <div class="category-bar"><i style="width:${Math.max(0, Math.min(100, percent))}%"></i></div>
+      </div>`;
+  }
+
+  function bindResultEvents() {
+    const edit = document.querySelector('[data-action="edit-project"]');
+    if (edit) edit.addEventListener('click', () => {
+      state.activeSection = 0;
+      renderJourney();
+    });
+    const generate = document.querySelector('[data-action="generate-deck"]');
+    if (generate) generate.addEventListener('click', generateDeck);
+  }
+
+  async function generateDeck() {
+    if (!state.project) {
+      showToast('Projet introuvable', 'Rechargez la page puis reprenez votre projet.', 5000);
+      return;
+    }
+
+    const declaration = Boolean(
+      state.project.data &&
+      state.project.data.review &&
+      (
+        state.project.data.review.declaration === true ||
+        state.project.data.review.declaration === 'true'
+      )
+    );
+
+    if (!declaration) {
+      showToast(
+        'Déclaration obligatoire',
+        'Retournez à l’étape 9 et confirmez la déclaration de sincérité avant la génération.',
+        6000
+      );
+      return;
+    }
+
+    showGenerationModal();
+
+    try {
+      const result = unwrap(
+        await callServer(
+          'apiGenerateStandardDeck',
+          state.project.projectId,
+          state.token
+        )
+      );
+
+      state.project = result.project;
+      finishGenerationSteps();
+
+      window.setTimeout(() => {
+        closeGenerationModal();
+        renderResults();
+        showToast(
+          'Pitch Deck généré',
+          'Les versions Google Slides et PDF sont disponibles.',
+          5000
+        );
+      }, 900);
+
+    } catch (error) {
+      closeGenerationModal();
+      showToast(
+        'Génération impossible',
+        error && error.message ? error.message : 'Une erreur est survenue pendant la génération.',
+        7000
+      );
+    }
+  }
+
+  function showGenerationModal() {
+    const existing = document.getElementById('generation-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'generation-modal';
+    modal.className = 'modal-backdrop';
+
+    modal.innerHTML = `
+      <div class="generation-modal">
+        <span class="eyebrow">Création en cours</span>
+        <h3>Nous structurons votre présentation.</h3>
+        <p>Ne fermez pas cette fenêtre pendant la génération des fichiers.</p>
+
+        <div class="generation-steps">
+          ${[
+            'Analyse des réponses',
+            'Construction de la narration',
+            'Vérification des informations',
+            'Création des 12 slides',
+            'Export du PDF'
+          ].map((label, index) => `
+            <div
+              class="generation-step ${index === 0 ? 'active' : ''}"
+              data-generation-step="${index}"
+            >
+              <i></i>
+              <span>${label}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    let current = 0;
+
+    state.generationTimer = window.setInterval(() => {
+      const steps = Array.from(
+        document.querySelectorAll('[data-generation-step]')
+      );
+
+      if (!steps.length) return;
+
+      steps.forEach((step, index) => {
+        step.classList.toggle('done', index < current);
+        step.classList.toggle('active', index === current);
+      });
+
+      current = Math.min(current + 1, steps.length - 1);
+    }, 1200);
+  }
+
+  function finishGenerationSteps() {
+    window.clearInterval(state.generationTimer);
+
+    document.querySelectorAll('[data-generation-step]').forEach(step => {
+      step.classList.remove('active');
+      step.classList.add('done');
+    });
+  }
+
+  function closeGenerationModal() {
+    window.clearInterval(state.generationTimer);
+
+    const modal = document.getElementById('generation-modal');
+    if (modal) modal.remove();
+  }
+
+  // Démarrage robuste dans l’iframe Google Apps Script.
+  window.setTimeout(function() {
+    init();
+  }, 0);
+})();
+</script>
