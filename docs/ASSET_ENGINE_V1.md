@@ -2,11 +2,11 @@
 
 ## State and source of truth
 
-- Canonical project identity: existing \`Projects.projectId\` and token hash.
-- Canonical file metadata: the \`Assets\` spreadsheet tab. Twelve fixed columns:
-  \`assetId, projectId, role, kind, fileId, name, mimeType, bytes, sha256, status, createdAt, updatedAt\`.
-- Canonical file bytes: Google Drive, under one project folder. \`images/\`, \`source-files/\`, \`generated/\`.
-- Files are never stored as base64 inside \`Projects.dataJson\` or in event logs.
+- Canonical project identity: existing `Projects.projectId` and token hash.
+- Canonical file metadata: the `Assets` spreadsheet tab. Twelve fixed columns:
+  `assetId, projectId, role, kind, fileId, name, mimeType, bytes, sha256, status, createdAt, updatedAt`.
+- Canonical file bytes: Google Drive, under one project folder. `images/`, `source-files/`, `generated/`.
+- Files are never stored as base64 inside `Projects.dataJson` or in event logs.
 - Active asset records are additive and immutable except for status and timestamps. A deletion is a soft-delete, followed by Drive trash.
 - A file belongs to its project. Endpoints authorize with the **current** project token, not an arbitrary Drive file ID.
 - Resume rotates the project token as before. Asset listings are reloaded from canonical storage.
@@ -22,45 +22,45 @@ The UI intentionally exposes the first four image roles and source documents. Ot
 
 ## Call contracts
 
-- \`apiListProjectAssets(projectId, token)\` → \`{assets: [...]}\`
-- \`apiUploadProjectAsset({projectId,token,fileName,mimeType,size,base64,role})\` → \`{asset,deduplicated}\`
-- \`apiGetProjectImageData(projectId,token,assetId)\` → \`{assetId,dataUrl}\`
-- \`apiDeleteProjectAsset({projectId,token,assetId})\` → \`{deleted,alreadyAbsent?,cleanupPending?}\`
+- `apiListProjectAssets(projectId, token)` → `{assets: [...]}`
+- `apiUploadProjectAsset({projectId,token,fileName,mimeType,size,base64,role})` → `{asset,deduplicated}`
+- `apiGetProjectImageData(projectId,token,assetId)` → `{assetId,dataUrl}`
+- `apiDeleteProjectAsset({projectId,token,assetId})` → `{deleted,alreadyAbsent?,cleanupPending?}`
 
-All endpoints use the existing \`safeApi_\` envelope. No endpoint accepts an unscoped Drive ID from the browser. Uploads reject invalid formats, signatures, declared-size mismatch, oversize files and unknown roles.
+All endpoints use the existing `safeApi_` envelope. No endpoint accepts an unscoped Drive ID from the browser. Uploads reject invalid formats, signatures, declared-size mismatch, oversize files and unknown roles.
 
 ## Generation transaction
 
 1. Validate the current project token and project declaration.
 2. Resolve canonical assets and generate a new Slides file. Embed image blobs from authorized Drive files.
-3. Move Slides into the project \`generated/\` folder and grant viewer access to the project contact.
+3. Move Slides into the project `generated/` folder and grant viewer access to the project contact.
 4. Export exactly one PDF into the same folder and grant viewer access.
-5. Commit new links in \`Projects\` and log \`DECK_GENERATED\`.
+5. Commit new links in `Projects` and log `DECK_GENERATED`.
 6. On generation/Drive/Sheet failure, trash only the newly created artifacts, preserve the last published links and log failure.
 7. Changing questionnaire answers or an asset clears the current links and marks the existing generated deck stale, while preserving historical files.
 
 ## Idempotence and recovery
 
-- Same \`sha256 + role\` upload in an existing project returns an existing asset (deduplicated); it does not create another file.
+- Same `sha256 + role` upload in an existing project returns an existing asset (deduplicated); it does not create another file.
 - If a file's metadata write fails, the new file is trashed as compensating action.
-- A deleted asset is excluded immediately; if trashing fails, \`cleanupPending\` is returned and an identical delete request retries Drive cleanup.
+- A deleted asset is excluded immediately; if trashing fails, `cleanupPending` is returned and an identical delete request retries Drive cleanup.
 - Existing project folder IDs remain authoritative. A missing historical folder does not silently produce a replacement with divergent data.
-- Do **not** execute one-time \`setup\` with incompatible Sheets headers. The setup now rejects header drift rather than wiping historical rows.
+- Do **not** execute one-time `setup` with incompatible Sheets headers. The setup now rejects header drift rather than wiping historical rows.
 - Autosaves serialize across navigation, preventing a step transition from silently skipping an in-flight write.
 
 ## Audit events
 
-\`ASSET_UPLOADED\`, \`ASSET_DEDUPLICATED\`, \`ASSET_DELETED\`,
-\`DECK_INVALIDATED_BY_ASSET_CHANGE\`, \`DECK_INVALIDATED_BY_EDIT\`,
-\`PROJECT_RESUMED\`, \`RESUME_CREDENTIALS_REJECTED\`, \`DECK_GENERATED\`,
-\`DECK_GENERATION_FAILED\`.
+`ASSET_UPLOADED`, `ASSET_DEDUPLICATED`, `ASSET_DELETED`,
+`DECK_INVALIDATED_BY_ASSET_CHANGE`, `DECK_INVALIDATED_BY_EDIT`,
+`PROJECT_RESUMED`, `RESUME_CREDENTIALS_REJECTED`, `DECK_GENERATED`,
+`DECK_GENERATION_FAILED`.
 
 No raw access codes, tokens, base64, image blobs or PDF contents belong in logs.
 
 ## Deployment gate (not yet executed)
 
-- CI: \`node --test tests/asset-engine.test.cjs\` (isolated mocks + source contracts).
-- Apps Script smoke: backup current Properties and sheet headers, run \`setupAfriGreen24PitchDeck()\` only after confirming existing configuration; validate the \`Assets\` tab and previously generated project records.
+- CI: `node --test tests/asset-engine.test.cjs` (isolated mocks + source contracts).
+- Apps Script smoke: backup current Properties and sheet headers, run `setupAfriGreen24PitchDeck()` only after confirming existing configuration; validate the `Assets` tab and previously generated project records.
 - With a paid synthetic project, test upload, dedup, list, access denial, resume, delete, stale-deck invalidation, image placement and Slides/PDF viewing as the recipient.
 - Inject a Drive sharing failure and verify that the canonical output URLs remain unchanged.
 - Review Drive root permissions and sharing policies (Drive may inherit access from parent folders).
@@ -78,6 +78,6 @@ No raw access codes, tokens, base64, image blobs or PDF contents belong in logs.
 
 ## Release policy
 
-Branch: \`feature/asset-engine-v1-20261008\`.
+Branch: `feature/asset-engine-v1-20261008`.
 
 The changes must be reviewed and tested via PR before any Apps Script deployment. A merged GitHub commit is not evidence of runtime deployment success.
