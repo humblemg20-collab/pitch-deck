@@ -19,4 +19,4 @@ jobs:
         with:
           node-version: "22"
       - name: Verify canonical upload, recovery and Slides contracts
-        run: node --test tests/asset-engine.test.cjs
+        run: node --test tests/asset-engine.test.cjs tests/openai-import.test.cjs
