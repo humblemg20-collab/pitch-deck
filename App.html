@@ -14,7 +14,10 @@
     saveTimer: null,
     saving: false,
     generationTimer: null,
-    resumeUrl: ''
+    resumeUrl: '',
+    assets: [],
+    assetPreviews: {},
+    assetBusy: false
   };
 
   let app = null;
@@ -205,6 +208,7 @@
           state.resumeUrl = buildResumeUrl();
 
           renderJourney();
+          refreshProjectAssets();
           return;
 
         } catch (error) {
@@ -254,6 +258,8 @@
  function renderLanding() {
   state.project = null;
   state.token = '';
+  state.assets = [];
+  state.assetPreviews = {};
   clearUrl();
 
   const root = getAppRoot_();
@@ -1447,7 +1453,7 @@ function bindLandingEvents() {
 
 
           renderJourney();
-
+          refreshProjectAssets();
 
           showToast(
             'Espace créé',
@@ -1516,6 +1522,7 @@ function bindLandingEvents() {
           );
 
           renderJourney();
+          refreshProjectAssets();
 
         } catch (error) {
           showToast(
@@ -1559,6 +1566,7 @@ function bindLandingEvents() {
             <nav class="step-list">
               ${state.schema.map((item, index) => renderStep(item, index, progress)).join('')}
             </nav>
+            ${renderAssetPanel()}
           </aside>
           <main class="workspace">
             <div class="workspace-inner">
@@ -1582,6 +1590,157 @@ function bindLandingEvents() {
         </div>
       </div>`;
     bindJourneyEvents();
+    bindAssetEvents();
+  }
+
+
+  // Files are references to Drive assets, never embedded in questionnaire data.
+  function renderAssetPanel() {
+    const options = [
+      ['SOURCE_DOCUMENT', 'Document PDF / Word'],
+      ['LOGO', 'Logo du projet'],
+      ['COVER_HERO', 'Photo de couverture'],
+      ['PRODUCT', 'Photo de produit / solution'],
+      ['FOUNDER', 'Portrait fondateur']
+    ];
+    return '<section class="ag24-asset-panel" id="ag24-asset-panel">' +
+      '<h3>Documents et images</h3>' +
+      '<p>Vos fichiers sont conservés avec votre projet et retrouvés lors de la reprise.</p>' +
+      '<label for="ag24-asset-role">Utilisation du fichier</label>' +
+      '<select id="ag24-asset-role">' + options.map(function(option) {
+        return '<option value="' + option[0] + '">' + escapeHtml(option[1]) + '</option>';
+      }).join('') + '</select>' +
+      '<label for="ag24-asset-file">Choisir un fichier</label>' +
+      '<input id="ag24-asset-file" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg">' +
+      '<small>Images PNG/JPEG : 2 Mo max. PDF/Word : 8 Mo max. Les documents sont stockés sans extraction automatique pour le moment.</small>' +
+      '<button class="btn btn-secondary" type="button" data-action="upload-project-asset">Ajouter au dossier</button>' +
+      '<div class="ag24-assets-list">' +
+      (state.assets.length ? state.assets.map(function(asset) {
+        const id = escapeHtml(asset.assetId);
+        return '<div class="ag24-asset-item" data-asset-id="' + id + '">' +
+          '<strong>' + escapeHtml(asset.name) + '</strong>' +
+          '<span>' + escapeHtml(asset.role) + ' · ' +
+            Math.ceil(Number(asset.bytes || 0) / 1024) + ' Ko</span>' +
+          '<div class="ag24-asset-actions">' +
+          (asset.kind === 'IMAGE'
+            ? '<button type="button" data-action="preview-asset">Aperçu</button>'
+            : '') +
+          '<button type="button" data-action="delete-asset">Retirer</button>' +
+          '</div>' +
+          '<div class="ag24-asset-preview"></div>' +
+          '</div>';
+      }).join('') : '<p class="ag24-asset-empty">Aucun fichier joint.</p>') +
+      '</div></section>';
+  }
+
+  async function refreshProjectAssets() {
+    if (!state.project || !state.token) return;
+    const requestedProject = state.project.projectId;
+    try {
+      const result = unwrap(await callServer(
+        'apiListProjectAssets', requestedProject, state.token
+      ));
+      if (!state.project || state.project.projectId !== requestedProject) return;
+      state.assets = result.assets || [];
+      const panel = document.getElementById('ag24-asset-panel');
+      if (panel) {
+        panel.outerHTML = renderAssetPanel();
+        bindAssetEvents();
+      }
+    } catch (error) {
+      showToast('Documents non chargés',
+        error && error.message ? error.message : 'Impossible de charger les pièces jointes.', 6500);
+    }
+  }
+
+  function readProjectAsset_(file) {
+    return new Promise(function(resolve, reject) {
+      const reader = new FileReader();
+      reader.onerror = function() { reject(new Error('Lecture du fichier impossible.')); };
+      reader.onload = function() {
+        const encoded = String(reader.result || '').split(',')[1] || '';
+        if (!encoded) return reject(new Error('Fichier vide.'));
+        resolve(encoded);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function bindAssetEvents() {
+    const panel = document.getElementById('ag24-asset-panel');
+    if (!panel) return;
+    const upload = panel.querySelector('[data-action="upload-project-asset"]');
+    if (upload) upload.addEventListener('click', async function() {
+      if (state.assetBusy) return;
+      const file = panel.querySelector('#ag24-asset-file').files[0];
+      const role = panel.querySelector('#ag24-asset-role').value;
+      if (!file) return showToast('Fichier manquant', 'Sélectionnez un fichier.', 4000);
+      const image = role !== 'SOURCE_DOCUMENT';
+      const maxBytes = (image ? 2 : 8) * 1024 * 1024;
+      if (!file.size || file.size > maxBytes) {
+        return showToast('Fichier trop volumineux',
+          'Limite : ' + (image ? '2 Mo pour une image.' : '8 Mo pour un document.'), 5000);
+      }
+      state.assetBusy = true;
+      upload.disabled = true;
+      upload.textContent = 'Enregistrement…';
+      try {
+        const base64 = await readProjectAsset_(file);
+        const result = unwrap(await callServer('apiUploadProjectAsset', {
+          projectId: state.project.projectId, token: state.token,
+          role: role, fileName: file.name,
+          mimeType: file.type, size: file.size, base64: base64
+        }));
+        await refreshProjectAssets();
+        showToast(result.deduplicated ? 'Fichier déjà enregistré' : 'Fichier enregistré',
+          'Il est lié au projet et sera disponible après reprise.', 4500);
+      } catch (error) {
+        showToast('Upload refusé', error && error.message ? error.message : 'Upload impossible.', 6500);
+      } finally {
+        state.assetBusy = false;
+        upload.disabled = false;
+        upload.textContent = 'Ajouter au dossier';
+      }
+    });
+
+    panel.querySelectorAll('[data-action="preview-asset"]').forEach(function(button) {
+      button.addEventListener('click', async function() {
+        const item = button.closest('[data-asset-id]');
+        if (!item) return;
+        button.disabled = true;
+        try {
+          const result = unwrap(await callServer('apiGetProjectImageData',
+            state.project.projectId, state.token, item.dataset.assetId));
+          const container = item.querySelector('.ag24-asset-preview');
+          const img = document.createElement('img');
+          img.alt = 'Aperçu du visuel';
+          img.src = result.dataUrl;
+          container.textContent = '';
+          container.appendChild(img);
+        } catch (error) {
+          showToast('Aperçu indisponible', error.message, 5000);
+        } finally { button.disabled = false; }
+      });
+    });
+
+    panel.querySelectorAll('[data-action="delete-asset"]').forEach(function(button) {
+      button.addEventListener('click', async function() {
+        const item = button.closest('[data-asset-id]');
+        if (!item || !window.confirm('Retirer ce fichier du projet ?')) return;
+        button.disabled = true;
+        try {
+          unwrap(await callServer('apiDeleteProjectAsset', {
+            projectId: state.project.projectId, token: state.token,
+            assetId: item.dataset.assetId
+          }));
+          await refreshProjectAssets();
+          showToast('Fichier retiré', 'Le registre du projet a été mis à jour.', 4500);
+        } catch (error) {
+          showToast('Suppression impossible', error.message, 6000);
+          button.disabled = false;
+        }
+      });
+    });
   }
 
   function renderStep(section, index, progress) {
