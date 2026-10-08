@@ -19,6 +19,7 @@ function setupAfriGreen24PitchDeck() {
     ensureSheet_(spreadsheet, AG24_CONFIG.SHEETS.EVENTS, AG24_CONFIG.EVENT_HEADERS);
     ensureSheet_(spreadsheet, AG24_CONFIG.SHEETS.SETTINGS, ['key', 'value', 'updatedAt']);
     ensureSheet_(spreadsheet, AG24_ASSETS_V1.SHEET, AG24_ASSETS_V1.HEADERS);
+    ensureSheet_(spreadsheet, AG24_PITCH_IMPORT.SHEET, AG24_PITCH_IMPORT.HEADERS);
 
     let rootFolder;
     if (current.AG24_ROOT_FOLDER_ID) {
