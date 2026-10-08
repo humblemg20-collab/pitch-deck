@@ -100,11 +100,14 @@ function randomToken_() {
 }
 
 function randomAccessCode_() {
-  let code = '';
+  // Avoid predictable Math.random() per digit. Twelve UUID hex nibbles
+  // yield a sufficiently dispersed decimal code alongside online throttling.
+  const hex = Utilities.getUuid().replace(/[^a-f0-9]/ig, '');
+  let output = '';
   for (let i = 0; i < AG24_CONFIG.ACCESS_CODE_LENGTH; i += 1) {
-    code += Math.floor(Math.random() * 10);
+    output += (parseInt(hex.slice(i * 2, i * 2 + 2), 16) % 10).toString();
   }
-  return code;
+  return output;
 }
 
 function hashValue_(value) {
