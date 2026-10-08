@@ -206,6 +206,11 @@ function apiUploadProjectAsset(input) {
         return record.sha256 === validated.sha256 && record.role === validated.role;
       });
       if (duplicate) {
+        // Never report a valid duplicate if its canonical Drive file is gone.
+        const canonicalFile = DriveApp.getFileById(duplicate.fileId);
+        if (canonicalFile.isTrashed && canonicalFile.isTrashed()) {
+          throw new Error('Fichier canonique supprimé : retirez la référence puis réessayez.');
+        }
         logEvent_(project.projectId, 'ASSET_DEDUPLICATED', {
           assetId: duplicate.assetId, role: duplicate.role
         });
