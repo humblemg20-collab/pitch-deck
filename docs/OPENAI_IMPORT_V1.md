@@ -8,36 +8,36 @@ OpenAI propose uniquement des valeurs qualitatives provenant du document.
 
 ## Source canonique
 
-- \`Projects\` : données utilisateurs du questionnaire, dans \`dataJson\`.
-- \`Assets\` : métadonnées de fichiers uploadés, liées au \`projectId\`.
+- `Projects` : données utilisateurs du questionnaire, dans `dataJson`.
+- `Assets` : métadonnées de fichiers uploadés, liées au `projectId`.
 - Dossier Drive privé : documents sources et propositions d'extraction au format JSON.
-- \`ImportRuns\` : suivi de l'extraction, provenance (document, hash, modèle, statut, timestamps).
-- \`Events\` : journal technique des opérations sans contenu de fichiers ni secret.
+- `ImportRuns` : suivi de l'extraction, provenance (document, hash, modèle, statut, timestamps).
+- `Events` : journal technique des opérations sans contenu de fichiers ni secret.
 
 ## Séquence
 
 1. Client payé reprend son projet avec les identifiants existants.
 2. Il charge un document PDF/DOC/DOCX (max 8 Mio).
-3. Le document est stocké en Drive privé avec un rôle \`SOURCE_DOCUMENT\`.
-4. Sur demande explicite, le backend vérifie \`projectId + token + assetId\` et un budget de 3 tentatives par document.
-5. Le serveur réserve un \`ImportRun: RUNNING\` sous verrou. Aucun réseau sous ce verrou.
-6. Un seul appel \`POST /v1/responses\` avec \`input_file\` base64, \`store: false\` et \`text.format\` JSON Schema strict.
-7. Les suggestions sont limitées à des champs autorisés de \`getQuestionnaireSchema_()\`, avec valeur, indice de preuve et confiance. Les suggestions invalides sont rejetées.
-8. Le résultat est persisté sur Drive et le run passe à \`READY\` ; un échec passe à \`FAILED\` sans modifier les réponses.
+3. Le document est stocké en Drive privé avec un rôle `SOURCE_DOCUMENT`.
+4. Sur demande explicite, le backend vérifie `projectId + token + assetId` et un budget de 3 tentatives par document.
+5. Le serveur réserve un `ImportRun: RUNNING` sous verrou. Aucun réseau sous ce verrou.
+6. Un seul appel `POST /v1/responses` avec `input_file` base64, `store: false` et `text.format` JSON Schema strict.
+7. Les suggestions sont limitées à des champs autorisés de `getQuestionnaireSchema_()`, avec valeur, indice de preuve et confiance. Les suggestions invalides sont rejetées.
+8. Le résultat est persisté sur Drive et le run passe à `READY` ; un échec passe à `FAILED` sans modifier les réponses.
 9. Le client affiche les preuves et coche les propositions à valider.
-10. \`apiApplyDocumentAnalysis\` relit les suggestions **côté serveur**, applique seulement les champs **vides**, recalcule diagnostic, invalide le deck précédent si des valeurs changent et journalise la provenance.
+10. `apiApplyDocumentAnalysis` relit les suggestions **côté serveur**, applique seulement les champs **vides**, recalcule diagnostic, invalide le deck précédent si des valeurs changent et journalise la provenance.
 11. Un nouveau deck est généré depuis les données désormais canoniques.
 
 ## Contrats de sécurité
 
-- Secret serveur exclusivement via \`PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY')\`. Ne jamais mettre de clé dans le dépôt, l'HTML, les logs ou les URL.
-- Modèle configurable séparément pour ce projet via \`AG24_PITCH_OPENAI_MODEL\` (par défaut : \`gpt-4.1-mini\`).
+- Secret serveur exclusivement via `PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY')`. Ne jamais mettre de clé dans le dépôt, l'HTML, les logs ou les URL.
+- Modèle configurable séparément pour ce projet via `AG24_PITCH_OPENAI_MODEL` (par défaut : `gpt-4.1-mini`).
 - Aucune dépendance à HumbleOS.
-- \`store: false\` pour éviter de conserver la réponse API comme objet de conversation stocké par défaut ; ce réglage ne signifie pas qu'aucune donnée n'est traitée ou journalisée par le fournisseur selon les conditions de la plateforme.
+- `store: false` pour éviter de conserver la réponse API comme objet de conversation stocké par défaut ; ce réglage ne signifie pas qu'aucune donnée n'est traitée ou journalisée par le fournisseur selon les conditions de la plateforme.
 - Aucune tentative automatique répétée sur 429/5xx. Le client peut relancer manuellement dans la limite prévue.
 - Contenu du document traité comme une **source non fiable**, pas comme des instructions système.
 - Les preuves sont des indices générés par le modèle ; elles restent **à vérifier par l'utilisateur**, car une citation peut être incorrecte.
-- Champs \`checkbox\`, \`select\` et déclaration de sincérité exclus du préremplissage.
+- Champs `checkbox`, `select` et déclaration de sincérité exclus du préremplissage.
 - Les montants numériques sont filtrés strictement ; aucune interprétation implicite des revenus ou chiffres.
 - Pas de remplacement silencieux d'une valeur déjà saisie dans le questionnaire.
 - Aucun accès aux dossiers des autres projets ou aux identifiants Drive arbitraires par le navigateur.
@@ -47,20 +47,20 @@ OpenAI propose uniquement des valeurs qualitatives provenant du document.
 
 ### Prérequis, à valider dans l'environnement Apps Script de Pitch Deck
 
-- Secret \`OPENAI_API_KEY\` configuré côté serveur via une procédure sécurisée. Les propriétés de BUSINESS-PLAN sont propres à **son projet Apps Script** et ne sont pas automatiquement partagées.
+- Secret `OPENAI_API_KEY` configuré côté serveur via une procédure sécurisée. Les propriétés de BUSINESS-PLAN sont propres à **son projet Apps Script** et ne sont pas automatiquement partagées.
 - Modèle configuré avec accès API autorisé ; aucun secret ne doit être transmis au navigateur.
 - Accès Drive, Sheets, UrlFetchApp et Slides permis aux exécutions.
-- Schéma \`ImportRuns\` créé sans destruction des données existantes.
+- Schéma `ImportRuns` créé sans destruction des données existantes.
 - E-mails et permissions Drive testés sous le rôle réel du payeur.
 
 ### Tests d'intégration avant fusion de la PR
 
 - [ ] CI GitHub Actions vert, tests de syntaxe et mocks.
-- [ ] Vérifier le statut \`apiPitchOpenAIHealth\` avec clé présente / absente.
+- [ ] Vérifier le statut `apiPitchOpenAIHealth` avec clé présente / absente.
 - [ ] Analyser un PDF de test comportant faits, preuves et montants.
 - [ ] Analyser un DOCX de test et vérifier la qualité textuelle.
 - [ ] Refuser un document malformé, non autorisé ou trop volumineux.
-- [ ] Reprendre le projet et relire une analyse \`READY\`.
+- [ ] Reprendre le projet et relire une analyse `READY`.
 - [ ] Valider uniquement deux champs sélectionnés ; préserver tous les autres.
 - [ ] Confirmer qu'une réponse humaine préexistante ne change jamais.
 - [ ] Faire échouer volontairement l'appel OpenAI ; aucun champ ne doit être modifié.
