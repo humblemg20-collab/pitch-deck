@@ -83,33 +83,54 @@
     const configuredBase = state.bootstrap && state.bootstrap.config ? state.bootstrap.config.webAppUrl : '';
     const base = String(configuredBase || '').trim().split('?')[0];
     if (!base) return '';
-    return base + '?project=' + encodeURIComponent(state.project.projectId) + '&token=' + encodeURIComponent(state.token);
+    return base + '#project=' + encodeURIComponent(state.project.projectId) + '&token=' + encodeURIComponent(state.token);
   }
 
   function setUrl(projectId, token) {
     if (!projectId || !token) return;
+    // The canonical URL is returned to the user; don't store a token in a
+    // query parameter of the sandboxed Apps Script iframe.
     state.resumeUrl = buildResumeUrl();
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.set('project', projectId);
-      url.searchParams.set('token', token);
-      window.history.replaceState({}, '', url.toString());
-    } catch (error) {
-      // L'URL interne de l'iframe Apps Script n'est pas utilisée comme lien de reprise.
-    }
   }
 
   function clearUrl() {
     state.resumeUrl = '';
+  }
 
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('project');
-      url.searchParams.delete('token');
-      window.history.replaceState({}, '', url.toString());
-    } catch (error) {
-      console.warn("Impossible de nettoyer l'URL interne Apps Script :", error);
-    }
+  function readInitialResumeParams_() {
+    const legacy = window.AG24_INITIAL_STATE || {};
+    const fallback = {
+      projectId: String(legacy.projectId || ''),
+      token: String(legacy.token || '')
+    };
+    return new Promise(function(resolve) {
+      if (typeof google === 'undefined' || !google.script ||
+          !google.script.url || !google.script.url.getLocation) {
+        resolve(fallback); return;
+      }
+      let settled = false;
+      const finish = function(value) {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+      // Avoid permanently blocking the startup if the Apps Script URL
+      // service is unavailable in an embedded webview.
+      window.setTimeout(function() {finish(fallback);}, 1700);
+      try {
+        google.script.url.getLocation(function(location) {
+          const params = location && location.parameter || {};
+          const fragment = new URLSearchParams(
+            String(location && location.hash || '').replace(/^#/, '')
+          );
+          const projectId = fragment.get('project') ||
+            fallback.projectId || String(params.project || '');
+          const token = fragment.get('token') ||
+            fallback.token || String(params.token || '');
+          finish({projectId:projectId, token:token});
+        });
+      } catch (error) { finish(fallback); }
+    });
   }
 
   function showToast(title, message, timeout) {
@@ -190,7 +211,7 @@
         return;
       }
 
-      const initial = window.AG24_INITIAL_STATE || {};
+      const initial = await readInitialResumeParams_();
 
       if (initial.projectId && initial.token) {
         try {
