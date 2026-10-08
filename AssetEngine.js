@@ -206,7 +206,6 @@ function apiUploadProjectAsset(input) {
         return record.sha256 === validated.sha256 && record.role === validated.role;
       });
       if (duplicate) {
-        AG24_ASSET_invalidateDeck_(project);
         logEvent_(project.projectId, 'ASSET_DEDUPLICATED', {
           assetId: duplicate.assetId, role: duplicate.role
         });
