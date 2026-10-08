@@ -17,7 +17,8 @@
     resumeUrl: '',
     assets: [],
     assetPreviews: {},
-    assetBusy: false
+    assetBusy: false,
+    savePromise: null
   };
 
   let app = null;
@@ -1908,41 +1909,57 @@ function bindLandingEvents() {
       indicator.textContent = 'Modifications en attente…';
       indicator.className = 'save-state';
     }
-    state.saveTimer = window.setTimeout(() => saveCurrentSection(false), 900);
+    state.saveTimer = window.setTimeout(() => {
+      saveCurrentSection(false).catch(function(error) {
+        showToast('Sauvegarde non effectuée', error.message, 6000);
+      });
+    }, 900);
   }
 
   async function saveCurrentSection(showEncouragement) {
-    if (!state.project || state.saving) return;
-    const section = state.schema[state.activeSection];
-    const values = collectCurrentSection();
-    state.saving = true;
-    const indicator = document.getElementById('save-state');
-    if (indicator) {
-      indicator.textContent = 'Enregistrement…';
-      indicator.className = 'save-state';
-    }
-    try {
-      const result = unwrap(await callServer('apiSaveSection', {
-        projectId: state.project.projectId,
-        token: state.token,
-        sectionId: section.id,
-        values
-      }));
-      state.project = result.project;
+    if (!state.project) return;
+    // Every call joins the serialization chain, including navigation calls.
+    const previous = state.savePromise || Promise.resolve();
+    const operation = previous.then(async function() {
+      const section = state.schema[state.activeSection];
+      const values = collectCurrentSection();
+      const indicator = document.getElementById('save-state');
+      state.saving = true;
       if (indicator) {
-        indicator.textContent = 'Toutes vos réponses sont enregistrées.';
-        indicator.className = 'save-state saved';
+        indicator.textContent = 'Enregistrement…';
+        indicator.className = 'save-state';
       }
-      if (showEncouragement) showToast('Étape enregistrée', result.encouragement, 3500);
-    } catch (error) {
-      if (indicator) {
-        indicator.textContent = 'Échec de l’enregistrement.';
-        indicator.className = 'save-state error';
+      try {
+        const result = unwrap(await callServer('apiSaveSection', {
+          projectId: state.project.projectId,
+          token: state.token,
+          sectionId: section.id,
+          values: values
+        }));
+        // Preserve local typing which occurred while the RPC was in flight.
+        const latest = collectCurrentSection();
+        state.project = result.project;
+        if (state.schema[state.activeSection].id === section.id) {
+          Object.assign(state.project.data[section.id], latest);
+        }
+        if (indicator) {
+          indicator.textContent = 'Toutes vos réponses sont enregistrées.';
+          indicator.className = 'save-state saved';
+        }
+        if (showEncouragement) showToast('Étape enregistrée', result.encouragement, 3500);
+      } catch (error) {
+        if (indicator) {
+          indicator.textContent = 'Échec de l’enregistrement.';
+          indicator.className = 'save-state error';
+        }
+        throw error;
+      } finally {
+        state.saving = false;
       }
-      throw error;
-    } finally {
-      state.saving = false;
-    }
+    });
+    state.savePromise = operation;
+    try { return await operation; }
+    finally { if (state.savePromise === operation) state.savePromise = null; }
   }
 
   function validateCurrentSection() {
