@@ -97,7 +97,20 @@ function getOrCreateProjectFolder_(project) {
   if (project.folderId) return DriveApp.getFolderById(project.folderId);
   const root = DriveApp.getFolderById(config.rootFolderId);
   const folderName = project.projectId + ' - ' + slugify_(project.projectName);
-  const folder = root.createFolder(folderName);
+  // Recover an orphan folder from an interrupted row update, without making
+  // a second folder or silently choosing between ambiguous candidates.
+  const candidates = [];
+  const folders = root.getFolders();
+  while (folders.hasNext()) {
+    const folder = folders.next();
+    if (folder.getName().indexOf(project.projectId + ' - ') === 0) {
+      candidates.push(folder);
+      if (candidates.length > 1) {
+        throw new Error('Dossiers projet dupliqués : intervention de récupération requise.');
+      }
+    }
+  }
+  const folder = candidates.length ? candidates[0] : root.createFolder(folderName);
   project.folderId = folder.getId();
   return folder;
 }
