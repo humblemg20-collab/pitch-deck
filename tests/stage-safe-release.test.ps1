@@ -71,7 +71,14 @@ function stable() {
     ExpectedBranch=$branch
     OutputRoot=(Join-Path $workspace 'stages')
   }
-  $output=& $tool @args
+  try {
+    $output=& $tool @args
+  } catch {
+    Write-Host ('STAGING_EXCEPTION=' + $_.Exception.Message)
+    Write-Host ('STAGING_POSITION=' + $_.InvocationInfo.PositionMessage)
+    Write-Host ('STAGING_STACK=' + $_.ScriptStackTrace)
+    throw
+  }
   if (-not $?) {throw 'STAGING_SCRIPT_FAILED'}
   $releaseRoot=(@($output | Where-Object {$_ -match '^RELEASE_ROOT='})[0] -replace '^RELEASE_ROOT=','')
   if (-not $releaseRoot) {throw 'MISSING_RELEASE_ROOT'}
@@ -104,7 +111,7 @@ function stable() {
       throw ('MISSING_STAGE_CATEGORY:'+$expected)
     }
   }
-  $wrongHash=false
+  $wrongHash=$false
   try {
     $args.ExpectedBackupSha256='0'*64
     & $tool @args | Out-Null
