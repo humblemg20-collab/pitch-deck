@@ -1,5 +1,5 @@
 function exportPresentationToPdf_(project, presentationResult) {
-  const folder = getOrCreateProjectFolder_(project);
+  const folder = getOrCreateGeneratedFolder_(project);
   const sourceFile = DriveApp.getFileById(presentationResult.presentationId);
   const pdfName = presentationResult.fileName + '.pdf';
   const pdfBlob = sourceFile.getAs(MimeType.PDF).setName(pdfName);
