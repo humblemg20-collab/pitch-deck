@@ -23,3 +23,6 @@ jobs:
       - name: Verify PowerShell read-only backup comparison engine
         shell: pwsh
         run: ./tests/compare-script.test.ps1
+      - name: Verify safe three-way release staging and live-only preservation
+        shell: pwsh
+        run: ./tests/stage-safe-release.test.ps1
