@@ -422,3 +422,53 @@ function apiApplyDocumentAnalysis(input) {
     });
   });
 }
+
+
+/**
+ * Operator-only runtime smoke test. Run from the Apps Script editor.
+ * The trailing underscore deliberately prevents google.script.run exposure.
+ * Returns no key, headers or raw response content; sends no customer data.
+ */
+function TEST_PITCH_OPENAI_CONNECTION_() {
+  const cfg = AG24_IMPORT_config_();
+  if (!cfg.configured) return {
+    ok: false, provider: 'OPENAI', code: 'KEY_UNAVAILABLE_IN_THIS_SCRIPT'
+  };
+  let response;
+  try {
+    response = UrlFetchApp.fetch(AG24_PITCH_IMPORT.API_URL, {
+      method: 'post',
+      contentType: 'application/json',
+      headers: {Authorization: 'Bearer ' + cfg.key},
+      payload: JSON.stringify({
+        model: cfg.model,
+        store: false,
+        input: 'Réponds uniquement avec le mot PONG.',
+        max_output_tokens: 32
+      }),
+      muteHttpExceptions: true
+    });
+  } catch (error) {
+    return {ok: false, provider: 'OPENAI', code: 'NETWORK_ERROR'};
+  }
+  const httpStatus = response.getResponseCode();
+  if (httpStatus < 200 || httpStatus >= 300) {
+    return {
+      ok: false, provider: 'OPENAI',
+      code: 'OPENAI_HTTP_' + String(httpStatus),
+      httpStatus: httpStatus
+    };
+  }
+  try {
+    const parsed = JSON.parse(response.getContentText());
+    return {
+      ok: parsed.status === 'completed',
+      provider: 'OPENAI',
+      model: String(parsed.model || cfg.model).slice(0, 80),
+      responseStatus: String(parsed.status || 'unknown'),
+      storageDisabled: true
+    };
+  } catch (error) {
+    return {ok: false, provider: 'OPENAI', code: 'INVALID_JSON'};
+  }
+}
