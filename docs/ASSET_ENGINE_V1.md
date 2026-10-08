@@ -39,6 +39,16 @@ All endpoints use the existing `safeApi_` envelope. No endpoint accepts an unsco
 6. On generation/Drive/Sheet failure, trash only the newly created artifacts, preserve the last published links and log failure.
 7. Changing questionnaire answers or an asset clears the current links and marks the existing generated deck stale, while preserving historical files.
 
+## Secure resume-link compatibility (8 October 2026)
+
+- New resume links use `/exec#project=<projectId>&token=<sessionToken>`; the fragment is not sent as an HTTP query parameter.
+- The client resolves the fragment using the official Apps Script `google.script.url.getLocation` API, which works in an IFRAME web app.
+- Historical `/exec?project=...&token=...` links are retained via server-provided `initialState` and query compatibility, without requiring customers to recreate their projects.
+- The existing server-generated `template.initialState` is now interpolated in `Index.html`, fixing an earlier initialization mismatch.
+- Security follow-up: short resume access codes remain rate-limited; links should be kept private and must not appear in analytics, logs, or third-party redirects.
+- CI guard: `node --test tests/resume-link.test.cjs`.
+
+
 ## Idempotence and recovery
 
 - Same `sha256 + role` upload in an existing project returns an existing asset (deduplicated); it does not create another file.
