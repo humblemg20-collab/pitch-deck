@@ -180,7 +180,7 @@ $collisionReport = Join-Path $releaseRoot 'global-symbol-collisions.txt'
 }) | Set-Content -LiteralPath $collisionReport -Encoding UTF8
 
 $csv = Join-Path $releaseRoot 'release-impact.csv'
-@($results) | Export-Csv -LiteralPath $csv -NoTypeInformation -Encoding UTF8
+$results.ToArray() | Export-Csv -LiteralPath $csv -NoTypeInformation -Encoding UTF8
 $blocked = @($results | Where-Object {$_.Status -like 'BLOCKED_*'}).Count
 if ($collisions.Count -gt 0) {$blocked += $collisions.Count}
 $state = if ($blocked -gt 0) {'REQUIRES_RECONCILIATION'} else {'STAGED_FOR_REVIEW'}
