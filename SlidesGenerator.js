@@ -64,6 +64,8 @@ function generateStandardPresentation_(project) {
       slidesFile,
       getOrCreateGeneratedFolder_(project)
     );
+    // A Slides link is not useful unless the paying project's contact can open it.
+    if (isValidEmail_(project.email)) slidesFile.addViewer(project.email);
 
     return {
       presentationId: presentationId,
