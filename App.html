@@ -1692,6 +1692,10 @@ function bindLandingEvents() {
           role: role, fileName: file.name,
           mimeType: file.type, size: file.size, base64: base64
         }));
+        if (!result.deduplicated && state.project) {
+          state.project.slidesUrl = '';
+          state.project.pdfUrl = '';
+        }
         await refreshProjectAssets();
         showToast(result.deduplicated ? 'Fichier déjà enregistré' : 'Fichier enregistré',
           'Il est lié au projet et sera disponible après reprise.', 4500);
@@ -1734,6 +1738,10 @@ function bindLandingEvents() {
             projectId: state.project.projectId, token: state.token,
             assetId: item.dataset.assetId
           }));
+          if (state.project) {
+            state.project.slidesUrl = '';
+            state.project.pdfUrl = '';
+          }
           await refreshProjectAssets();
           showToast('Fichier retiré', 'Le registre du projet a été mis à jour.', 4500);
         } catch (error) {
