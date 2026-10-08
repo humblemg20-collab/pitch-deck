@@ -18,6 +18,7 @@ function setupAfriGreen24PitchDeck() {
     ensureSheet_(spreadsheet, AG24_CONFIG.SHEETS.PROJECTS, AG24_CONFIG.PROJECT_HEADERS);
     ensureSheet_(spreadsheet, AG24_CONFIG.SHEETS.EVENTS, AG24_CONFIG.EVENT_HEADERS);
     ensureSheet_(spreadsheet, AG24_CONFIG.SHEETS.SETTINGS, ['key', 'value', 'updatedAt']);
+    ensureSheet_(spreadsheet, AG24_ASSETS_V1.SHEET, AG24_ASSETS_V1.HEADERS);
 
     let rootFolder;
     if (current.AG24_ROOT_FOLDER_ID) {
@@ -53,7 +54,9 @@ function ensureSheet_(spreadsheet, name, headers) {
   const firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
   const shouldWrite = headers.some(function(header, index) { return firstRow[index] !== header; });
   if (shouldWrite) {
-    sheet.clear();
+    if (sheet.getLastRow() > 0) {
+      throw new Error('Schéma incompatible pour ' + name + '. Migration explicite requise.');
+    }
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     sheet.setFrozenRows(1);
     sheet.autoResizeColumns(1, headers.length);
