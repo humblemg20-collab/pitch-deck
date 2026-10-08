@@ -19,6 +19,7 @@ function generateStandardPresentation_(project) {
   }
 
   const slidesContent = buildStandardDeckContent(project);
+  const projectAssets = AG24_ASSET_imagesForGeneration_(project.projectId);
 
   if (!Array.isArray(slidesContent) || !slidesContent.length) {
     throw new Error('Le contenu du Pitch Deck est vide.');
@@ -43,12 +44,14 @@ function generateStandardPresentation_(project) {
     }
 
     slidesContent.forEach(function(slideData, index) {
-      createPremiumSlide_(
+      slideData._hasFounderAsset = !!AG24_SLIDE_selectAsset_(projectAssets, ['FOUNDER', 'TEAM']);
+      const slide = createPremiumSlide_(
         presentation,
         slideData || {},
         index,
         slidesContent.length
       );
+      AG24_SLIDE_placeImage_(slide, slideData, projectAssets);
     });
 
     presentation.saveAndClose();
@@ -157,6 +160,7 @@ function createPremiumSlide_(
     data.number || index + 1,
     totalSlides
   );
+  return slide;
 }
 
 /**
@@ -789,6 +793,19 @@ function createTeamSlide_(slide, data) {
       color: theme.white
     }
   );
+
+  if (data._hasFounderAsset) {
+    addPanel_(slide, 526, 205, 374, 158, theme.panelAlt);
+    addTextBox_(slide, 'COMPÉTENCES CLÉS', 685, 218, 190, 18,
+      { fontSize: 9, bold: true, color: theme.green });
+    addTextBox_(slide, ag24Text_(data.skills, 'À préciser'), 685, 241, 192, 48,
+      { fontSize: 11, color: theme.white });
+    addTextBox_(slide, 'À RENFORCER', 685, 299, 192, 16,
+      { fontSize: 9, bold: true, color: theme.yellow });
+    addTextBox_(slide, ag24Text_(data.gaps, 'À préciser'), 685, 322, 192, 26,
+      { fontSize: 10, color: theme.white });
+    return;
+  }
 
   addPanel_(slide, 526, 205, 374, 72, theme.panelAlt);
 
