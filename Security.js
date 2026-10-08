@@ -47,7 +47,10 @@ function enforceCreationLimit_(email) {
 function createResumeUrl_(projectId, token) {
   const base = getPrivateConfig_().webAppUrl || ScriptApp.getService().getUrl() || '';
   if (!base) return '';
-  return base + '?project=' + encodeURIComponent(projectId) + '&token=' + encodeURIComponent(token);
+  // Fragment content is not sent to web servers. Keep query-style links
+  // supported by the client for historical projects.
+  return base.split('#')[0].split('?')[0] + '#project=' +
+    encodeURIComponent(projectId) + '&token=' + encodeURIComponent(token);
 }
 
 function publicProject_(project) {
