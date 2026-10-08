@@ -97,6 +97,9 @@ function setup() {
 test('OpenAI code parses, never loads HumbleOS, strict result schema',()=>{
   assert.doesNotThrow(()=>new Function(SOURCE));
   assert.doesNotMatch(SOURCE,/UrlFetchApp\.fetch\([^)]*humbleos/i);
+  assert.match(SOURCE,/function TEST_PITCH_OPENAI_CONNECTION_\(\)/);
+  assert.match(SOURCE,/KEY_UNAVAILABLE_IN_THIS_SCRIPT/);
+  assert.doesNotMatch(SOURCE,/return\s+\{[^}]*apiKey:/);
   const f=setup(), schema=f.ctx.AG24_IMPORT_schema_();
   assert.equal(schema.additionalProperties,false);
   assert.equal(schema.properties.fields.items.additionalProperties,false);
