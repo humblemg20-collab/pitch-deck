@@ -93,19 +93,22 @@ function logEvent_(projectId, eventType, details) {
 
 function getOrCreateProjectFolder_(project) {
   const config = requireSetup_();
-  if (project.folderId) {
-    try {
-      return DriveApp.getFolderById(project.folderId);
-    } catch (error) {
-      project.folderId = '';
-    }
-  }
+  // Fail closed: a missing existing folder must never silently create a second truth.
+  if (project.folderId) return DriveApp.getFolderById(project.folderId);
   const root = DriveApp.getFolderById(config.rootFolderId);
   const folderName = project.projectId + ' - ' + slugify_(project.projectName);
   const folder = root.createFolder(folderName);
   project.folderId = folder.getId();
   return folder;
 }
+function getOrCreateGeneratedFolder_(project) {
+  const previousId = project.folderId || '';
+  const root = getOrCreateProjectFolder_(project);
+  if (!previousId && project.folderId) updateProject_(project);
+  const folders = root.getFoldersByName('generated');
+  return folders.hasNext() ? folders.next() : root.createFolder('generated');
+}
+
 function saveLeadEmail_(leadData) {
   const email = normalizeLeadEmail_(leadData.email);
 
