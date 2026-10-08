@@ -129,9 +129,6 @@ function AG24_ASSET_normalizeUpload_(input) {
     throw new Error('Taille du fichier incohérente.');
   }
   AG24_ASSET_assertSignature_(mimeType, bytes);
-  const signedBytes = bytes.map(function(value) {
-    return value < 0 ? value + 256 : value;
-  });
   const signature = Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256, bytes
   ).map(function(b) {
@@ -174,6 +171,15 @@ function AG24_ASSET_folder_(project, kind) {
   return existing.hasNext() ? existing.next() : root.createFolder(name);
 }
 
+function AG24_ASSET_invalidateDeck_(project) {
+  if (!project.slidesUrl && !project.pdfUrl) return;
+  project.slidesUrl = '';
+  project.pdfUrl = '';
+  project.status = AG24_CONFIG.STATUS.READY;
+  updateProject_(project);
+  logEvent_(project.projectId, 'DECK_INVALIDATED_BY_ASSET_CHANGE', {});
+}
+
 function AG24_ASSET_findActive_(projectId, assetId) {
   return AG24_ASSET_rows_(projectId).find(function(record) {
     return record.assetId === assetId && record.status === 'ACTIVE';
@@ -200,6 +206,7 @@ function apiUploadProjectAsset(input) {
         return record.sha256 === validated.sha256 && record.role === validated.role;
       });
       if (duplicate) {
+        AG24_ASSET_invalidateDeck_(project);
         logEvent_(project.projectId, 'ASSET_DEDUPLICATED', {
           assetId: duplicate.assetId, role: duplicate.role
         });
@@ -237,6 +244,7 @@ function apiUploadProjectAsset(input) {
         }
         throw error;
       }
+      AG24_ASSET_invalidateDeck_(project);
       logEvent_(project.projectId, 'ASSET_UPLOADED', {
         assetId: record.assetId, role: record.role,
         kind: record.kind, bytes: record.bytes
@@ -252,7 +260,17 @@ function apiDeleteProjectAsset(input) {
       const project = AG24_ASSET_authorize_(input && input.projectId, input && input.token);
       const assetId = cleanString_(input && input.assetId, 100);
       const record = AG24_ASSET_findActive_(project.projectId, assetId);
-      if (!record) return { deleted: true, alreadyAbsent: true };
+      if (!record) {
+        const deleted = AG24_ASSET_rows_(project.projectId).find(function(row) {
+          return row.assetId === assetId && row.status === 'DELETED';
+        });
+        if (deleted) {
+          // A previous Drive cleanup may have failed: retry safely.
+          try { DriveApp.getFileById(deleted.fileId).setTrashed(true); }
+          catch (error) { return { deleted: true, cleanupPending: true }; }
+        }
+        return { deleted: true, alreadyAbsent: true };
+      }
       AG24_ASSET_getSheet_(false).getRange(record.rowNumber, 10, 1, 3)
         .setValues([['DELETED', record.createdAt, nowIso_()]]);
       let cleanupPending = false;
@@ -262,6 +280,7 @@ function apiDeleteProjectAsset(input) {
         cleanupPending = true;
         console.error('ASSET_DELETE_CLEANUP_PENDING', record.assetId, error);
       }
+      AG24_ASSET_invalidateDeck_(project);
       logEvent_(project.projectId, 'ASSET_DELETED', {
         assetId: record.assetId, cleanupPending: cleanupPending
       });
