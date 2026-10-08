@@ -480,4 +480,19 @@
   .ag24-asset-actions button { background:transparent; border:0; color:var(--emerald); font-size:12px; text-decoration:underline; cursor:pointer; padding:4px 0; }
   .ag24-asset-preview img { margin-top:9px; width:100%; max-height:160px; object-fit:contain; border-radius:8px; }
 
+
+  .ag24-import-modal{width:min(850px,95vw);max-height:90vh;overflow-y:auto;background:#F7F4EC;
+    color:#18212A;padding:clamp(18px,3vw,32px);border-radius:20px;}
+  .ag24-import-modal h2{margin:0 0 10px;font-size:24px;}
+  .ag24-import-modal>p{line-height:1.5;color:#53636F;}
+  .ag24-import-list{display:grid;gap:10px;margin:15px 0;}
+  .ag24-import-row{display:grid;grid-template-columns:20px minmax(0,1fr);gap:12px;
+    padding:14px;border:1px solid #D8D5CE;border-radius:11px;line-height:1.55;}
+  .ag24-import-row input{width:18px;height:18px;margin-top:5px;accent-color:#138251;}
+  .ag24-import-row strong{display:block;font-size:13px;}
+  .ag24-import-row small{display:block;color:#63707A;font-size:11px;margin:5px 0;overflow-wrap:anywhere;}
+  .ag24-import-row em{display:block;font-style:normal;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;}
+  .ag24-import-row:has(input:disabled){opacity:.65;}
+  .ag24-import-footer{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;}
+
 </style>
