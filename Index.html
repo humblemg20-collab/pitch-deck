@@ -78,7 +78,8 @@
       }
     );
 
-    window.AG24_INITIAL_STATE = {};
+    // Existing query-style links remain compatible; new links use the URL fragment.
+    window.AG24_INITIAL_STATE = <?!= initialState ?>;
   </script>
 
 
