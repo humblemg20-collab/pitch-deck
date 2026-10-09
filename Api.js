@@ -135,11 +135,24 @@ function apiSaveSection(input) {
       const nextSection = sanitizeObject_(payload.values || {});
       const changed = JSON.stringify(project.data[sectionId] || {}) !==
         JSON.stringify(nextSection);
+      const priorSection=project.data[sectionId]||{};
       project.data[sectionId] = nextSection;
       // Any later correction of canonical answers invalidates the owner's
       // previous final-review attestation. The owner must review again.
-      if(changed && sectionId!=='review' && project.data.review){
-        project.data.review.investorSubmissionApproved=false;
+      if(changed && project.data.review){
+        if(sectionId!=='review'){
+          project.data.review.investorSubmissionApproved=false;
+        } else {
+          // Editing contact/details in the same save cannot silently reuse an
+          // attestation given for the previous version of that information.
+          const before=Object.assign({},nextSection);
+          const prior=Object.assign({},priorSection);
+          delete before.investorSubmissionApproved;
+          delete prior.investorSubmissionApproved;
+          if(JSON.stringify(before)!==JSON.stringify(prior)){
+            project.data.review.investorSubmissionApproved=false;
+          }
+        }
       }
       // A changed answer invalidates the old deck, but never deletes its archived files.
       if (changed && (project.slidesUrl || project.pdfUrl)) {

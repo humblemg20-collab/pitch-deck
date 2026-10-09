@@ -104,6 +104,8 @@ test('no final submission if human approval is missing or material content chang
  assert.match(api,/sectionId!=='review' && project\.data\.review/);
  assert.match(api,/investorSubmissionApproved=false/);
  assert.match(assets,/investorSubmissionApproved=false/);
+ assert.match(api,/priorSection=project.data[sectionId]/);
+ assert.match(api,/delete prior.investorSubmissionApproved/);
 });
 test('submission cannot fake documentary evidence or replace source data',()=>{
  const f=fixture(),before=JSON.stringify(f.project.data);
@@ -123,6 +125,8 @@ test('both export modes remain distinct, and final mode is checked twice server-
  assert.match(slides,/if\(submission\) AG24_SUBMISSION_assertReady_\(project\)/);
  assert.match(slides,/slide\.qualityLabel=''/);
  assert.match(slides,/Pitch Deck Investisseur/);
+ assert.match(slides,/PRÉSENTATION INVESTISSEUR/);
+ assert.match(read('PitchMediaLayout.js'),/PRÉSENTATION INVESTISSEUR/);
  assert.match(read('PitchSubmissionGate.js'),/readyForSubmission|READY_FOR_SUBMISSION/);
 });
 test('submission hides private labels and keeps page numbering, preview remains unchanged',()=>{

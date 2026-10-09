@@ -344,6 +344,10 @@ function apiDeleteProjectAsset(input) {
         });
         if(!project.slidesUrl&&!project.pdfUrl)updateProject_(project);
       }
+      if(record.kind==='IMAGE' && project.data && project.data.review){
+        project.data.review.investorSubmissionApproved=false;
+        if(!project.slidesUrl&&!project.pdfUrl)updateProject_(project);
+      }
       AG24_ASSET_invalidateDeck_(project);
       logEvent_(project.projectId, 'ASSET_DELETED', {
         assetId: record.assetId, cleanupPending: cleanupPending

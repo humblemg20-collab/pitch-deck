@@ -70,7 +70,7 @@ function AG24_MEDIA_render_(slide,data) {
   const theme=getPremiumTheme_();
   const kind=String(data.type||'').toLowerCase();
   if(kind==='cover'){
-    addTextBox_(slide,'AFRIGREEN24  /  INVESTOR PRESENTATION',54,45,410,28,
+    addTextBox_(slide,data.submissionMode?'PRÉSENTATION INVESTISSEUR':'AFRIGREEN24  /  INVESTOR PRESENTATION',54,45,410,28,
       {fontSize:11,bold:true,color:theme.green});
     addTextBox_(slide,ag24Text_(data.title,'Projet sans nom'),
       54,118,405,135,{fontSize:34,bold:true,color:theme.white});

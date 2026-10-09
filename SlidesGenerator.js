@@ -275,7 +275,7 @@ function applyPremiumCanvas_(slide) {
 
 function createCoverSlide_(slide, data) {
   const theme=getPremiumTheme_();
-  addTextBox_(slide,'AFRIGREEN24  /  INVESTOR PRESENTATION',54,47,525,26,
+  addTextBox_(slide,data.submissionMode?'PRÉSENTATION INVESTISSEUR':'AFRIGREEN24  /  INVESTOR PRESENTATION',54,47,525,26,
     {fontSize:11,bold:true,color:theme.green});
   addTextBox_(slide,ag24Text_(data.title,'Projet sans nom'),54,103,540,128,
     {fontSize:40,bold:true,color:theme.white});
