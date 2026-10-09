@@ -260,142 +260,38 @@ function createCoverSlide_(slide, data) {
   }
 }
 
-function createStatementSlide_(slide, data) {
-  const theme = getPremiumTheme_();
-
-  addSectionHeader_(slide, data.eyebrow, data.title);
-
-  addPanel_(slide, 54, 190, 560, 170, theme.panel);
-
-  addTextBox_(
-    slide,
-    ag24Text_(data.body, 'Information à compléter'),
-    78,
-    218,
-    512,
-    116,
-    {
-      fontSize: 16,
-      color: theme.text
-    }
-  );
-
-  addPanel_(slide, 642, 190, 258, 170, theme.panelAlt);
-
-  addTextBox_(
-    slide,
-    ag24Text_(data.sideLabel, 'Point clé').toUpperCase(),
-    666,
-    216,
-    210,
-    18,
-    {
-      fontSize: 9,
-      bold: true,
-      color: theme.green
-    }
-  );
-
-  addTextBox_(
-    slide,
-    ag24Text_(
-      data.sideValue,
-      'Information à compléter'
-    ),
-    666,
-    250,
-    210,
-    82,
-    {
-      fontSize: 15,
-      bold: true,
-      color: theme.white
-    }
-  );
-
-  addSourceLine_(
-    slide,
-    ag24Text_(data.proof, 'Source ou preuve à ajouter'),
-    54,
-    386,
-    846
-  );
-}
-
-function createInsightSlide_(slide,data) {
+function createStatementSlide_(slide,data) {
   const theme=getPremiumTheme_();
-  addTextBox_(slide,ag24Text_(data.eyebrow,'CONTEXTE'),54,45,680,24,
-    {fontSize:11,bold:true,color:theme.green});
-  addTextBox_(slide,ag24Text_(data.title,'Le contexte du problème'),
-    54,91,820,116,{fontSize:29,bold:true,color:theme.white});
-  // Editorial asymmetry: the evidence has space, the context is secondary.
-  const content=ag24Text_(data.body);
-  if(content) {
-    addPanel_(slide,54,233,540,138,theme.panel);
-    addTextBox_(slide,content,78,259,490,92,
-      {fontSize:18,color:theme.text});
+  addSectionHeader_(slide,data.eyebrow,data.title);
+  if(ag24Text_(data.body)) {
+    addPanel_(slide,54,190,560,170,theme.panel);
+    addTextBox_(slide,data.body,78,218,512,116,
+      {fontSize:17,color:theme.text});
   }
   if(ag24Text_(data.sideValue)) {
-    addTextBox_(slide,ag24Text_(data.sideLabel,'CONTEXTE').toUpperCase(),
-      636,238,250,24,{fontSize:10,bold:true,color:theme.green});
-    addTextBox_(slide,data.sideValue,636,273,253,81,
+    addPanel_(slide,642,190,258,170,theme.panelAlt);
+    addTextBox_(slide,ag24Text_(data.sideLabel,'PUBLIC VISÉ').toUpperCase(),
+      666,216,210,18,{fontSize:10,bold:true,color:theme.green});
+    addTextBox_(slide,data.sideValue,666,252,210,83,
       {fontSize:17,bold:true,color:theme.white});
   }
-  addSourceLine_(slide,data.proof,54,385,840);
+  addSourceLine_(slide,data.proof,54,386,846);
 }
-
-function createSolutionSlide_(slide, data) {
-  const theme = getPremiumTheme_();
-
-  addSectionHeader_(slide, data.eyebrow, data.title);
-
-  addPanel_(slide, 54, 192, 570, 168, theme.panel);
-
-  addTextBox_(
-    slide,
-    ag24Text_(
-      data.body,
-      'Proposition de valeur à compléter'
-    ),
-    80,
-    220,
-    518,
-    112,
-    {
-      fontSize: 17,
-      color: theme.text
-    }
-  );
-
-  addPanel_(slide, 650, 192, 250, 168, theme.panelAlt);
-
-  addTextBox_(
-    slide,
-    'STATUT ACTUEL',
-    674,
-    216,
-    200,
-    18,
-    {
-      fontSize: 9,
-      bold: true,
-      color: theme.green
-    }
-  );
-
-  addTextBox_(
-    slide,
-    ag24Text_(data.status, 'Stade à préciser'),
-    674,
-    252,
-    200,
-    76,
-    {
-      fontSize: 15,
-      bold: true,
-      color: theme.white
-    }
-  );
+function createSolutionSlide_(slide,data) {
+  const theme=getPremiumTheme_();
+  addSectionHeader_(slide,data.eyebrow,data.title);
+  if(ag24Text_(data.body)) {
+    addPanel_(slide,54,192,570,168,theme.panel);
+    addTextBox_(slide,data.body,80,218,518,117,
+      {fontSize:18,color:theme.text});
+  }
+  if(ag24Text_(data.status)) {
+    addPanel_(slide,650,192,250,168,theme.panelAlt);
+    addTextBox_(slide,'STATUT ACTUEL',674,216,200,18,
+      {fontSize:10,bold:true,color:theme.green});
+    addTextBox_(slide,data.status,674,252,200,75,
+      {fontSize:16,bold:true,color:theme.white});
+  }
 }
 
 function createStepsSlide_(slide, data) {
@@ -429,7 +325,7 @@ function createStepsSlide_(slide, data) {
 
     addTextBox_(
       slide,
-      ag24Text_(item, 'Information à compléter'),
+      ag24Text_(item, ''),
       x + 16,
       278,
       width - 32,
@@ -678,11 +574,11 @@ function createTeamSlide_(slide, data) {
     addPanel_(slide, 526, 205, 374, 158, theme.panelAlt);
     addTextBox_(slide, 'COMPÉTENCES CLÉS', 685, 218, 190, 18,
       { fontSize: 9, bold: true, color: theme.green });
-    addTextBox_(slide, ag24Text_(data.skills, 'À préciser'), 685, 241, 192, 48,
+    addTextBox_(slide, ag24Text_(data.skills, ''), 685, 241, 192, 48,
       { fontSize: 11, color: theme.white });
     addTextBox_(slide, 'À RENFORCER', 685, 299, 192, 16,
       { fontSize: 9, bold: true, color: theme.yellow });
-    addTextBox_(slide, ag24Text_(data.gaps, 'À préciser'), 685, 322, 192, 26,
+    addTextBox_(slide, ag24Text_(data.gaps, ''), 685, 322, 192, 26,
       { fontSize: 10, color: theme.white });
     return;
   }
@@ -705,7 +601,7 @@ function createTeamSlide_(slide, data) {
 
   addTextBox_(
     slide,
-    ag24Text_(data.skills, 'À préciser'),
+    ag24Text_(data.skills, ''),
     550,
     244,
     326,
@@ -734,7 +630,7 @@ function createTeamSlide_(slide, data) {
 
   addTextBox_(
     slide,
-    ag24Text_(data.gaps, 'À préciser'),
+    ag24Text_(data.gaps, ''),
     550,
     330,
     326,
@@ -768,7 +664,7 @@ function createFundingSlide_(slide, data) {
 
   addTextBox_(
     slide,
-    ag24Text_(data.title, 'Montant à préciser'),
+    ag24Text_(data.title, ''),
     54,
     88,
     520,
@@ -784,7 +680,7 @@ function createFundingSlide_(slide, data) {
     slide,
     ag24Text_(
       data.subtitle,
-      'Type de financement à préciser'
+      ''
     ),
     54,
     152,
@@ -879,7 +775,7 @@ function createFundingSlide_(slide, data) {
 
   addTextBox_(
     slide,
-    ag24Text_(data.contact, 'Contact à préciser'),
+    ag24Text_(data.contact, ''),
     580,
     382,
     320,
@@ -910,7 +806,7 @@ function createGenericSlide_(slide, data) {
       data.body ||
       data.subtitle ||
       data.description,
-      'Information à compléter'
+      ''
     ),
     80,
     232,
@@ -1136,7 +1032,7 @@ function addSourceLine_(
     'PREUVE / SOURCE : ' +
       ag24Text_(
         text,
-        'Source ou preuve à ajouter'
+        ''
       ),
     x,
     y,
