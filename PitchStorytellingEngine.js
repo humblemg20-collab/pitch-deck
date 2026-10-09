@@ -145,7 +145,10 @@ function AG24_STORY_ready_(project,model) {
  */
 function AG24_STORY_failureDetail_(run) {
   if(!run || run.status!=='FAILED')return null;
-  const code=String(run.errorCode||'STORY_INTERNAL_ERROR');
+  const raw=String(run.errorCode||'');
+  // Only known closed-form diagnostic codes may cross the authenticated API.
+  const allowed=/^(?:STORY_OPENAI_HTTP_\d{3}|STORY_OPENAI_(?:NETWORK_FAILURE|INCOMPLETE|INVALID_RESPONSE)|STORY_(?:SCHEMA_[A-Z_]+|TEXT_TOO_LONG|UNEXPECTED_FIELD|UNSUPPORTED_NUMBER|UNSUPPORTED_CLAIM|UNSAFE_COPY|INTERNAL_ERROR))$/;
+  const code=allowed.test(raw)?raw:'STORY_INTERNAL_ERROR';
   let category='TECHNICAL',message='GreenIN AI a rencontré une difficulté technique.',
     nextAction='Contactez le support en indiquant le code affiché.';
   if(/^STORY_OPENAI_HTTP_401$|^STORY_OPENAI_HTTP_403$/.test(code)){
