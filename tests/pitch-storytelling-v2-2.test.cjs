@@ -315,7 +315,7 @@ test('only forbidden fields must fail, never silently certify as an AI rewrite',
 test('GreenIN AI UI exposes dropped-field count and retains disclosure',()=>{
  const ui=read('App.html');
  assert.match(ui,/result.discardedUnexpected/);
- assert.match(ui,/proposition\\(s\\) hors périmètre ignorées/);
- assert.match(ui,/proposition\\(s\\) écartées/);
+ assert.ok(ui.includes('proposition(s) hors périmètre ignorées'));
+ assert.ok(ui.includes('proposition(s) écartées'));
  assert.match(ui,/fournisseur technique de GreenIN AI/);
 });
