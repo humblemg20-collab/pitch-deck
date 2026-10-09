@@ -45,10 +45,10 @@ function AG24_SLIDE_placeImage_(slide, slideData, assets) {
   image.setLeft(targetX+(targetWidth-fittedWidth)/2);
   image.setTop(targetY+(targetHeight-fittedHeight)/2);
 
-  if (kind === 'solution') {
+  if (kind === 'solution' && ag24Text_(slideData.status)) {
     const theme = getPremiumTheme_();
     addPanel_(slide, 650, 332, 250, 28, theme.panelAlt);
-    addTextBox_(slide, ag24Text_(slideData.status, 'Stade à préciser'),
+    addTextBox_(slide, ag24Text_(slideData.status),
       660, 338, 230, 16, {fontSize: 10, color: theme.white});
   }
   return true;
