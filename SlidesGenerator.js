@@ -41,6 +41,7 @@ function generateStandardPresentation_(project) {
 
     slidesContent.forEach(function(slideData, index) {
       slideData._hasFounderAsset = !!AG24_SLIDE_selectAsset_(projectAssets, ['FOUNDER', 'TEAM']);
+      slideData._coverAssetRole = (AG24_SLIDE_selectAsset_(projectAssets, ['COVER_HERO', 'LOGO']) || {}).role || '';
       const slide = createPremiumSlide_(
         presentation,
         slideData || {},
@@ -60,7 +61,7 @@ function generateStandardPresentation_(project) {
       slidesFile,
       getOrCreateGeneratedFolder_(project)
     );
-    // A Slides link is not useful unless the paying project's contact can open it.
+    // A Slides link is not useful unless the project owner can open it.
     if (isValidEmail_(project.email)) slidesFile.addViewer(project.email);
 
     return {
@@ -112,6 +113,10 @@ function createPremiumSlide_(
       createStatementSlide_(slide, data);
       break;
 
+    case 'insight':
+      createInsightSlide_(slide, data);
+      break;
+
     case 'solution':
       createSolutionSlide_(slide, data);
       break;
@@ -156,7 +161,8 @@ function createPremiumSlide_(
   addPremiumFooter_(
     slide,
     data.number || index + 1,
-    totalSlides
+    totalSlides,
+    data.qualityLabel
   );
   return slide;
 }
@@ -175,7 +181,7 @@ function ag24ScaleY_(value) {
 }
 
 function ag24ScaleFont_(value) {
-  return Math.max(7, Number(value || 14) * 0.75);
+  return Math.max(9, Number(value || 14) * 0.86);
 }
 
 function getPremiumTheme_() {
@@ -222,117 +228,36 @@ function applyPremiumCanvas_(slide) {
 }
 
 function createCoverSlide_(slide, data) {
-  const theme = getPremiumTheme_();
-
-  addTextBox_(
-    slide,
-    'AFRIGREEN24 PITCH STUDIO',
-    54,
-    48,
-    360,
-    22,
-    {
-      fontSize: 10,
-      bold: true,
-      color: theme.green
-    }
-  );
-
-  addTextBox_(
-    slide,
-    ag24Text_(data.title, 'Projet sans nom'),
-    54,
-    100,
-    560,
-    120,
-    {
-      fontSize: 34,
-      bold: true,
-      color: theme.white
-    }
-  );
-
-  addTextBox_(
-    slide,
-    ag24Text_(
-      data.subtitle,
-      'Proposition de valeur à compléter'
-    ),
-    54,
-    232,
-    560,
-    78,
-    {
-      fontSize: 18,
-      color: theme.text
-    }
-  );
-
-  if (ag24Text_(data.meta)) {
-    addPill_(
-      slide,
-      ag24Text_(data.meta),
-      54,
-      334,
-      420,
-      34,
-      theme.panelAlt,
-      theme.white
-    );
+  const theme=getPremiumTheme_();
+  addTextBox_(slide,'AFRIGREEN24  /  INVESTOR PRESENTATION',54,47,525,26,
+    {fontSize:11,bold:true,color:theme.green});
+  addTextBox_(slide,ag24Text_(data.title,'Projet sans nom'),54,103,540,128,
+    {fontSize:40,bold:true,color:theme.white});
+  if(ag24Text_(data.subtitle)) {
+    addTextBox_(slide,data.subtitle,54,240,530,86,
+      {fontSize:20,color:theme.text});
   }
-
-  addPanel_(
-    slide,
-    660,
-    60,
-    240,
-    330,
-    theme.panel
-  );
-
-  addTextBox_(
-    slide,
-    'AG24',
-    690,
-    112,
-    180,
-    54,
-    {
-      fontSize: 36,
-      bold: true,
-      color: theme.green,
-      align: SlidesApp.ParagraphAlignment.CENTER
-    }
-  );
-
-  addTextBox_(
-    slide,
-    'PITCH DECK\nSTANDARD',
-    690,
-    185,
-    180,
-    76,
-    {
-      fontSize: 20,
-      bold: true,
-      color: theme.white,
-      align: SlidesApp.ParagraphAlignment.CENTER
-    }
-  );
-
-  addTextBox_(
-    slide,
-    'Structuré pour être compris,\nprésenté et défendu.',
-    690,
-    286,
-    180,
-    56,
-    {
-      fontSize: 11,
-      color: theme.muted,
-      align: SlidesApp.ParagraphAlignment.CENTER
-    }
-  );
+  if(ag24Text_(data.meta)) {
+    addTextBox_(slide,data.meta,54,352,520,34,
+      {fontSize:13,color:theme.muted});
+  }
+  // The right panel is a deliberate hero area, not fake proof or a stock photo.
+  addPanel_(slide,654,67,246,324,theme.panelAlt);
+  if(!data._coverAssetRole) {
+    addTextBox_(slide,'AG24',682,130,188,76,
+      {fontSize:46,bold:true,color:theme.green,
+       align:SlidesApp.ParagraphAlignment.CENTER});
+    addTextBox_(slide,'PITCH STUDIO',682,225,188,32,
+      {fontSize:17,bold:true,color:theme.white,
+       align:SlidesApp.ParagraphAlignment.CENTER});
+    addTextBox_(slide,'12 SECTIONS  ·  1 VISION',672,305,206,27,
+      {fontSize:11,color:theme.muted,
+       align:SlidesApp.ParagraphAlignment.CENTER});
+  } else if(data._coverAssetRole==='LOGO') {
+    addTextBox_(slide,'PITCH STUDIO',676,284,201,35,
+      {fontSize:16,bold:true,color:theme.white,
+       align:SlidesApp.ParagraphAlignment.CENTER});
+  }
 }
 
 function createStatementSlide_(slide, data) {
@@ -397,6 +322,28 @@ function createStatementSlide_(slide, data) {
   );
 }
 
+function createInsightSlide_(slide,data) {
+  const theme=getPremiumTheme_();
+  addTextBox_(slide,ag24Text_(data.eyebrow,'CONTEXTE'),54,45,680,24,
+    {fontSize:11,bold:true,color:theme.green});
+  addTextBox_(slide,ag24Text_(data.title,'Le contexte du problème'),
+    54,91,820,116,{fontSize:29,bold:true,color:theme.white});
+  // Editorial asymmetry: the evidence has space, the context is secondary.
+  const content=ag24Text_(data.body);
+  if(content) {
+    addPanel_(slide,54,233,540,138,theme.panel);
+    addTextBox_(slide,content,78,259,490,92,
+      {fontSize:18,color:theme.text});
+  }
+  if(ag24Text_(data.sideValue)) {
+    addTextBox_(slide,ag24Text_(data.sideLabel,'CONTEXTE').toUpperCase(),
+      636,238,250,24,{fontSize:10,bold:true,color:theme.green});
+    addTextBox_(slide,data.sideValue,636,273,253,81,
+      {fontSize:17,bold:true,color:theme.white});
+  }
+  addSourceLine_(slide,data.proof,54,385,840);
+}
+
 function createSolutionSlide_(slide, data) {
   const theme = getPremiumTheme_();
 
@@ -457,6 +404,11 @@ function createStepsSlide_(slide, data) {
   addSectionHeader_(slide, data.eyebrow, data.title);
 
   const items = normalizeSlideItems_(data.items, 3).slice(0, 5);
+  if (!items.length) {
+    addTextBox_(slide,'Les étapes du service ne sont pas encore décrites.',
+      60,243,785,64,{fontSize:19,color:theme.muted});
+    return;
+  }
   const gap = 12;
   const totalWidth = 846;
   const width =
@@ -491,147 +443,71 @@ function createStepsSlide_(slide, data) {
   });
 }
 
-function createMarketSlide_(slide, data) {
-  const theme = getPremiumTheme_();
-
-  addSectionHeader_(slide, data.eyebrow, data.title);
-
-  addMetricCard_(
-    slide,
-    'ZONE PRIORITAIRE',
-    ag24Text_(data.geography, 'À préciser'),
-    54,
-    210,
-    260,
-    126
-  );
-
-  addMetricCard_(
-    slide,
-    'POTENTIEL ESTIMÉ',
-    ag24Text_(data.estimate, 'À quantifier'),
-    327,
-    210,
-    300,
-    126
-  );
-
-  addMetricCard_(
-    slide,
-    'SOURCE',
-    ag24Text_(data.source, 'Source requise'),
-    640,
-    210,
-    260,
-    126
-  );
-
-  addTextBox_(
-    slide,
-    'Une estimation crédible précise la source, la date et la méthode de calcul.',
-    54,
-    370,
-    846,
-    24,
-    {
-      fontSize: 10,
-      color: theme.muted
-    }
-  );
-}
-
-function createBusinessSlide_(slide, data) {
-  addSectionHeader_(slide, data.eyebrow, data.title);
-
-  addMetricCard_(
-    slide,
-    'TARIFICATION',
-    ag24Text_(data.pricing, 'À préciser'),
-    54,
-    210,
-    260,
-    132
-  );
-
-  addMetricCard_(
-    slide,
-    'ACQUISITION CLIENT',
-    ag24Text_(data.acquisition, 'À préciser'),
-    327,
-    210,
-    300,
-    132
-  );
-
-  addMetricCard_(
-    slide,
-    'REVENUS',
-    ag24Text_(data.revenue, 'À préciser'),
-    640,
-    210,
-    260,
-    132
-  );
-}
-
-function createTractionSlide_(slide, data) {
-  const theme = getPremiumTheme_();
-
-  addSectionHeader_(slide, data.eyebrow, data.title);
-
-  const metrics = Array.isArray(data.metrics)
-    ? data.metrics.slice(0, 3)
-    : [];
-
-  while (metrics.length < 3) {
-    metrics.push({
-      value: 'À préciser',
-      label: 'indicateur de validation'
-    });
+function createMarketSlide_(slide,data) {
+  const theme=getPremiumTheme_();
+  addSectionHeader_(slide,data.eyebrow,data.title);
+  // Use a large piece of REAL declared data, not invented TAM/SAM/SOM.
+  if(ag24Text_(data.geography)) {
+    addPanel_(slide,54,209,330,158,theme.panelAlt);
+    addTextBox_(slide,'GÉOGRAPHIE PRIORITAIRE',75,229,289,20,
+      {fontSize:10,bold:true,color:theme.green});
+    addTextBox_(slide,data.geography,75,263,285,77,
+      {fontSize:21,bold:true,color:theme.white});
   }
+  if(ag24Text_(data.estimate)) {
+    addPanel_(slide,408,209,492,158,theme.panel);
+    addTextBox_(slide,'POTENTIEL DÉCLARÉ',432,229,450,20,
+      {fontSize:10,bold:true,color:theme.green});
+    addTextBox_(slide,data.estimate,432,262,440,88,
+      {fontSize:18,bold:true,color:theme.white});
+  }
+  addSourceLine_(slide,data.source,54,386,846);
+}
+function createBusinessSlide_(slide,data) {
+  const theme=getPremiumTheme_();
+  addSectionHeader_(slide,data.eyebrow,data.title);
+  if(ag24Text_(data.pricing)) {
+    addPanel_(slide,54,210,388,156,theme.panelAlt);
+    addTextBox_(slide,'MODÈLE DE TARIFICATION',76,230,344,23,
+      {fontSize:10,bold:true,color:theme.green});
+    addTextBox_(slide,data.pricing,76,268,344,72,
+      {fontSize:24,bold:true,color:theme.white});
+  }
+  if(ag24Text_(data.acquisition)) {
+    addTextBox_(slide,'ACQUISITION CLIENT',480,217,395,26,
+      {fontSize:10,bold:true,color:theme.green});
+    addTextBox_(slide,data.acquisition,480,252,395,63,
+      {fontSize:17,color:theme.white});
+  }
+  if(ag24Text_(data.revenue)) {
+    addTextBox_(slide,'STATUT DES REVENUS',480,325,395,22,
+      {fontSize:10,bold:true,color:theme.yellow});
+    addTextBox_(slide,data.revenue,480,349,395,42,
+      {fontSize:17,bold:true,color:theme.white});
+  }
+}
 
-  metrics.forEach(function(metric, index) {
-    const x = 54 + index * 282;
-
-    addPanel_(slide, x, 210, 266, 128, theme.panel);
-
-    addTextBox_(
-      slide,
-      ag24Text_(metric.value, 'À préciser'),
-      x + 18,
-      228,
-      230,
-      44,
-      {
-        fontSize: 26,
-        bold: true,
-        color: theme.green,
-        align: SlidesApp.ParagraphAlignment.CENTER
-      }
-    );
-
-    addTextBox_(
-      slide,
-      ag24Text_(metric.label, 'indicateur'),
-      x + 18,
-      286,
-      230,
-      28,
-      {
-        fontSize: 10,
-        color: theme.muted,
-        align: SlidesApp.ParagraphAlignment.CENTER
-      }
-    );
+function createTractionSlide_(slide,data) {
+  const theme=getPremiumTheme_();
+  addSectionHeader_(slide,data.eyebrow,data.title);
+  const metrics=Array.isArray(data.metrics)?data.metrics.slice(0,3):[];
+  if(metrics.length===0) {
+    addTextBox_(slide,'Aucun indicateur chiffré documenté pour le moment.',
+      54,241,770,72,{fontSize:19,color:theme.muted});
+  }
+  const gap=16,totalWidth=846;
+  const width=metrics.length?(totalWidth-gap*(metrics.length-1))/metrics.length:0;
+  metrics.forEach(function(metric,index){
+    const x=54+index*(width+gap);
+    addPanel_(slide,x,203,width,163,theme.panelAlt);
+    addTextBox_(slide,ag24Text_(metric.value),x+18,225,width-36,60,
+      {fontSize:29,bold:true,color:theme.green,
+       align:SlidesApp.ParagraphAlignment.CENTER});
+    addTextBox_(slide,ag24Text_(metric.label),x+16,299,width-32,56,
+      {fontSize:12,color:theme.text,
+       align:SlidesApp.ParagraphAlignment.CENTER});
   });
-
-  addSourceLine_(
-    slide,
-    ag24Text_(data.evidence, 'Preuves à préciser'),
-    54,
-    372,
-    846
-  );
+  addSourceLine_(slide,data.evidence,54,390,846);
 }
 
 function createCompetitionSlide_(slide, data) {
@@ -715,11 +591,17 @@ function createGoToMarketSlide_(slide, data) {
     data.milestones,
     3
   ).slice(0, 4);
+  if (!milestones.length) {
+    addTextBox_(slide,'Les jalons de croissance restent à définir.',
+      54,254,790,55,{fontSize:19,color:theme.muted});
+    return;
+  }
 
   milestones.forEach(function(item, index) {
-    const x = 54 + index * 214;
+    const slotWidth = (846 - (milestones.length - 1) * 14) / milestones.length;
+    const x = 54 + index * (slotWidth + 14);
 
-    addPanel_(slide, x, 212, 198, 142, theme.panel);
+    addPanel_(slide, x, 212, slotWidth, 142, theme.panel);
 
     addTextBox_(
       slide,
@@ -740,7 +622,7 @@ function createGoToMarketSlide_(slide, data) {
       item,
       x + 16,
       272,
-      166,
+      slotWidth - 32,
       62,
       {
         fontSize: 12,
@@ -1065,7 +947,7 @@ function addSectionHeader_(slide, eyebrow, title) {
     slide,
     ag24Text_(
       title,
-      'Information à compléter'
+      'Section du projet'
     ),
     54,
     82,
@@ -1248,6 +1130,7 @@ function addSourceLine_(
 ) {
   const theme = getPremiumTheme_();
 
+  if (!ag24Text_(text)) return;
   addTextBox_(
     slide,
     'PREUVE / SOURCE : ' +
@@ -1313,7 +1196,8 @@ function addTextBox_(
 function addPremiumFooter_(
   slide,
   number,
-  totalSlides
+  totalSlides,
+  qualityLabel
 ) {
   const theme = getPremiumTheme_();
 
@@ -1341,6 +1225,11 @@ function addPremiumFooter_(
     }
   );
 
+  if (qualityLabel && qualityLabel !== 'PRÊT POUR REVUE HUMAINE') {
+    addTextBox_(slide,qualityLabel + ' • DONNÉES À VÉRIFIER',
+      330,426,430,20,{fontSize:9,bold:true,color:theme.yellow,
+      align:SlidesApp.ParagraphAlignment.CENTER});
+  }
   addTextBox_(
     slide,
     String(number || '') +
@@ -1442,10 +1331,7 @@ function normalizeSlideItems_(items, minimum) {
       .filter(Boolean);
   }
 
-  while (result.length < minimum) {
-    result.push('Information à compléter');
-  }
-
+  // V2.1: never invent missing steps, competitors, founders or milestones.
   return result;
 }
 
