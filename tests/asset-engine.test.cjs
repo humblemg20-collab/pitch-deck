@@ -110,7 +110,7 @@ function createFixture() {
 test('asset code and public API parse', () => {
   for (const p of ['AssetEngine.js','SlideAssets.js','Api.js',
     'SlidesGenerator.js','PdfExporter.js','Security.js',
-    'Setup.js','Storage.js','Utils.js','PaymentStorage.js']) {
+    'Setup.js','Storage.js','Utils.js']) {
     assert.doesNotThrow(() => new Function(read(p)), p);
   }
   assert.doesNotThrow(() => new Function(read('App.html')

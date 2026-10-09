@@ -13,11 +13,6 @@ function apiCreateProject(input) {
     const payload = sanitizeObject_(input || {});
     const email = cleanEmail_(payload.email);
     const projectName = cleanString_(payload.projectName, 180);
-    const paymentAccessCode = cleanString_(
-      payload.paymentAccessCode,
-      40
-    ).toUpperCase();
-
     if (!isValidEmail_(email)) {
       throw new Error('Veuillez saisir une adresse e-mail valide.');
     }
@@ -32,20 +27,7 @@ function apiCreateProject(input) {
       );
     }
 
-    if (!paymentAccessCode) {
-      throw new Error('Veuillez saisir votre code d’accès au Pitch Deck.');
-    }
-
     return withScriptLock_(function() {
-      const paymentAccess = verifyPitchAccess_(
-        email,
-        paymentAccessCode
-      );
-
-      if (!paymentAccess.valid) {
-        throw new Error(paymentAccess.message);
-      }
-
       enforceCreationLimit_(email);
 
       const token = randomToken_();
@@ -75,12 +57,6 @@ function apiCreateProject(input) {
         pdfUrl: ''
       });
 
-      consumePitchAccessForProject_(
-        email,
-        paymentAccessCode,
-        projectId
-      );
-
       if (typeof saveLeadEmail_ === 'function') {
         try { saveLeadEmail_({
           email: email,
@@ -89,7 +65,7 @@ function apiCreateProject(input) {
           consent: true,
           status: 'QUESTIONNAIRE_EN_COURS',
           source: 'AfriGreen24 Pitch Studio',
-          lastAction: 'Accès payé et projet créé'
+          lastAction: 'Projet Pitch Studio créé gratuitement'
         }); } catch (crmError) {
           console.error('LEAD_SYNC_NONBLOCKING', crmError);
           logEvent_(projectId, 'LEAD_SYNC_FAILED', {});
@@ -97,10 +73,7 @@ function apiCreateProject(input) {
       }
 
       const resumeUrl = createResumeUrl_(projectId, token);
-      logEvent_(projectId, 'PROJECT_CREATED', {
-        email: email,
-        paymentId: paymentAccess.paymentId || ''
-      });
+      logEvent_(projectId, 'PROJECT_CREATED', { creationMode: 'FREE' });
       sendProjectCreatedEmail_(project, accessCode, resumeUrl);
 
       return {

@@ -409,7 +409,7 @@
         margin-top: 32px;
       }
 
-      .ag24-selar-button {
+      .ag24-primary-cta {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -427,7 +427,7 @@
         transition: transform 0.2s ease, box-shadow 0.2s ease;
       }
 
-      .ag24-selar-button:hover {
+      .ag24-primary-cta:hover {
         transform: translateY(-2px);
         box-shadow: 0 20px 42px rgba(15, 117, 72, 0.28);
       }
@@ -710,16 +710,6 @@
         margin-bottom: 24px;
       }
 
-      .ag24-payment-note {
-        margin: 18px 0 0;
-        padding: 15px;
-        border-radius: 14px;
-        background: #f1f8f4;
-        color: #536e63;
-        font-size: 0.84rem;
-        line-height: 1.55;
-      }
-
       .ag24-footer {
         padding: 34px 0;
         background: #08291f;
@@ -757,7 +747,7 @@
           display: none;
         }
 
-        .ag24-nav-actions .ag24-selar-button {
+        .ag24-nav-actions .ag24-primary-cta {
           display: none;
         }
 
@@ -773,7 +763,7 @@
           flex-direction: column;
         }
 
-        .ag24-selar-button,
+        .ag24-primary-cta,
         .ag24-access-button {
           width: 100%;
         }
@@ -816,10 +806,10 @@
 
           <button
             type="button"
-            class="ag24-selar-button"
-            data-selar-payment
+            class="ag24-primary-cta"
+            data-scroll-access
           >
-            Acheter mon accès
+            Créer mon Pitch Deck
           </button>
         </div>
       </header>
@@ -849,23 +839,23 @@
             <div class="ag24-sales-actions">
              <button
                 type="button"
-                class="ag24-selar-button"
-                data-selar-payment
+                class="ag24-primary-cta"
+                data-scroll-access
               >
-                Payer sur Selar et obtenir mon accès
+                Commencer gratuitement
               </button>
 
               <button
                 type="button"
                 class="ag24-access-button"
-                data-scroll-access
+                data-entry="resume"
               >
-                J’ai déjà payé
+                Reprendre un projet
               </button>
             </div>
 
             <div class="ag24-sales-trust">
-              <span>Paiement sécurisé sur Selar</span>
+              <span>Accès libre au studio</span>
               <span>Google Slides modifiable</span>
               <span>Export PDF professionnel</span>
             </div>
@@ -997,7 +987,7 @@
               <span class="ag24-sales-badge">Comment cela fonctionne</span>
 
               <h2>
-                De votre paiement à votre présentation.
+                De votre idée à votre présentation.
               </h2>
             </div>
 
@@ -1005,18 +995,12 @@
 
               <article class="ag24-process-card">
                 <span>1</span>
-                <strong>Payez sur Selar</strong>
-                <p>
-                  Effectuez votre achat à partir de la page de paiement sécurisée.
-                </p>
+                <strong>Créez votre espace</strong><p>Indiquez le nom de votre projet et votre adresse e-mail.</p>
               </article>
 
               <article class="ag24-process-card">
                 <span>2</span>
-                <strong>Recevez votre code</strong>
-                <p>
-                  Après validation, votre code personnel d’accès vous est transmis.
-                </p>
+                <strong>Construisez votre dossier</strong><p>Complétez le questionnaire et sauvegardez votre progression.</p>
               </article>
 
               <article class="ag24-process-card">
@@ -1052,17 +1036,15 @@
               </span>
 
               <h2>
-                Vous avez déjà effectué votre paiement ?
+                Prêt à structurer votre projet ?
               </h2>
 
               <p>
-                Entrez l’adresse e-mail utilisée lors de votre paiement
-                ainsi que votre code d’accès personnel pour commencer
-                la création de votre Pitch Deck.
+                Entrez le nom de votre projet et votre adresse e-mail pour commencer gratuitement. Vous recevrez un code privé pour reprendre votre travail.
               </p>
 
               <ul>
-                <li>Un code personnel et utilisable une seule fois</li>
+                <li>Création gratuite sans code d'achat</li>
                 <li>Sauvegarde automatique de votre progression</li>
                 <li>Lien privé pour reprendre votre projet</li>
               </ul>
@@ -1078,7 +1060,7 @@
 
               <p>
                 ${state.entryMode === 'create'
-                  ? 'Votre paiement doit avoir été validé avant la création du projet.'
+                  ? 'Créez votre projet gratuitement et conservez votre code de reprise.'
                   : 'Utilisez votre identifiant et votre code de reprise.'}
               </p>
 
@@ -1088,7 +1070,7 @@
                   class="tab ${state.entryMode === 'create' ? 'active' : ''}"
                   data-entry="create"
                 >
-                  J’ai payé
+                  Créer un projet
                 </button>
 
                 <button
@@ -1103,19 +1085,6 @@
               ${state.entryMode === 'create'
                 ? renderCreateForm()
                 : renderResumeForm()}
-
-              ${
-                state.entryMode === 'create'
-                  ? `
-                    <div class="ag24-payment-note">
-                      Vous n’avez pas encore de code ?
-                      Effectuez d’abord votre paiement sur Selar,
-                      puis revenez sur cette page avec votre e-mail
-                      et votre code d’accès.
-                    </div>
-                  `
-                  : ''
-              }
             </div>
 
           </div>
@@ -1156,7 +1125,7 @@ function renderCreateForm() {
 
       <div class="field">
         <label>
-          E-mail utilisé pour le paiement
+          Adresse e-mail
           <span class="required">*</span>
         </label>
 
@@ -1169,28 +1138,7 @@ function renderCreateForm() {
         >
 
         <div class="field-help">
-          Utilisez exactement l’adresse e-mail associée à votre paiement Selar.
-        </div>
-      </div>
-
-
-      <div class="field">
-        <label>
-          Code d’accès au Pitch Deck
-          <span class="required">*</span>
-        </label>
-
-        <input
-          name="paymentAccessCode"
-          type="text"
-          required
-          autocomplete="off"
-          maxlength="32"
-          placeholder="AG24-PD-XXXXXXXXXX"
-        >
-
-        <div class="field-help">
-          Ce code est transmis après validation de votre paiement.
+          Un e-mail contenant vos informations de reprise vous sera envoyé.
         </div>
       </div>
 
@@ -1215,25 +1163,9 @@ function renderCreateForm() {
         type="submit"
         style="width:100%;margin-top:24px;"
       >
-        Vérifier mon accès et commencer
+        Créer mon projet
       </button>
 
-
-      <button
-        type="button"
-        class="btn btn-secondary"
-        data-selar-payment
-        style="
-          width:100%;
-          margin-top:12px;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          cursor:pointer;
-        "
-      >
-        Je n’ai pas encore payé — Acheter mon accès
-      </button>
 
     </form>
   `;
@@ -1257,75 +1189,7 @@ function renderCreateForm() {
         <button class="btn btn-primary btn-large" type="submit" style="width:100%;">Reprendre mon projet</button>
       </form>`;
   }
-  function unwrapPaymentResponse(response) {
-    if (response && response.ok === true) {
-      return unwrap(response);
-    }
-
-    if (response && response.success === true) {
-      return response.data;
-    }
-
-    const message =
-      response &&
-      response.error &&
-      response.error.message
-        ? response.error.message
-        : response && typeof response.error === 'string'
-          ? response.error
-          : 'Une erreur est survenue pendant la vérification du paiement.';
-
-    throw new Error(message);
-  }
-
-  async function verifyPaymentAccessBeforeCreation(
-    email,
-    paymentAccessCode
-  ) {
-    const response = await callServer(
-      'apiVerifyPitchAccess',
-      email,
-      paymentAccessCode
-    );
-
-    const verification = unwrapPaymentResponse(response);
-
-    if (!verification || !verification.valid) {
-      throw new Error(
-        verification && verification.message
-          ? verification.message
-          : 'Votre accès au Pitch Deck n’est pas valide.'
-      );
-    }
-
-    return verification;
-  }
-
- function openSelarPaymentPage() {
-  const paymentUrl = 'https://selar.com/l1k743881t';
-
-  const link = document.createElement('a');
-
-  link.href = paymentUrl;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-}
-
 function bindLandingEvents() {
-  document
-    .querySelectorAll('[data-selar-payment]')
-    .forEach(button => {
-      button.addEventListener('click', event => {
-        event.preventDefault();
-        event.stopPropagation();
-        openSelarPaymentPage();
-      });
-    });
-
   document
     .querySelectorAll('[data-scroll-access]')
     .forEach(button => {
@@ -1383,12 +1247,12 @@ function bindLandingEvents() {
 
         const originalText = button
           ? button.textContent
-          : 'Vérifier mon accès et commencer';
+          : 'Créer mon projet';
 
         if (button) {
           button.disabled = true;
           button.textContent =
-            'Vérification du paiement…';
+            'Création de votre espace…';
         }
 
         try {
@@ -1404,12 +1268,6 @@ function bindLandingEvents() {
             .trim()
             .toLowerCase();
 
-          const paymentAccessCode = String(
-            form.get('paymentAccessCode') || ''
-          )
-            .trim()
-            .toUpperCase();
-
           const consent = Boolean(
             form.get('consent')
           );
@@ -1423,13 +1281,7 @@ function bindLandingEvents() {
 
           if (!email) {
             throw new Error(
-              'Veuillez saisir l’e-mail utilisé pour le paiement.'
-            );
-          }
-
-          if (!paymentAccessCode) {
-            throw new Error(
-              'Veuillez saisir votre code d’accès.'
+              'Veuillez saisir votre adresse e-mail.'
             );
           }
 
@@ -1438,12 +1290,6 @@ function bindLandingEvents() {
               'Vous devez accepter la déclaration avant de continuer.'
             );
           }
-
-
-          await verifyPaymentAccessBeforeCreation(
-            email,
-            paymentAccessCode
-          );
 
 
           if (button) {
@@ -1458,7 +1304,6 @@ function bindLandingEvents() {
               {
                 projectName: projectName,
                 email: email,
-                paymentAccessCode: paymentAccessCode,
                 consent: consent
               }
             )
@@ -1488,7 +1333,7 @@ function bindLandingEvents() {
 
         } catch (error) {
           showToast(
-            'Accès impossible',
+            'Création impossible',
             error && error.message
               ? error.message
               : 'Une erreur est survenue.',

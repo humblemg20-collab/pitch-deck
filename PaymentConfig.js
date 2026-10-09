@@ -1,9 +1,0 @@
-const AG24_PAYMENT_CONFIG = Object.freeze({
-  SHEET_NAME: 'AG24_Payments',
-  PRODUCT_NAME: 'AfriGreen24 Pitch Studio',
-  PRODUCT_CODE: 'PITCH_DECK',
-  SELAR_PAYMENT_URL: 'https://selar.com/l1k743881t',
-  DEFAULT_CURRENCY: 'XOF',
-  ACCESS_PREFIX: 'AG24-PD-',
-  ACCESS_CODE_LENGTH: 10
-});
