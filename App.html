@@ -2144,6 +2144,8 @@ function bindLandingEvents() {
         'Reformulation prête : elle sera utilisée lors de la prochaine génération du deck.':
         result.status==='RUNNING'?'Reformulation en cours. Attendez la fin avant de générer.':
         result.status==='UNAVAILABLE'?'GreenIN AI n’est pas encore configuré. Le deck standard reste disponible.':
+        result.status==='FAILED' && result.failure ?
+          result.failure.message+' '+result.failure.nextAction+' (Code : '+result.failure.code+')' :
         'Aucune reformulation valide pour les réponses actuelles. Vous pouvez la préparer ou générer sans GreenIN AI.';
     } catch(error) {
       const node=document.getElementById('ag24-story-status');
@@ -2173,7 +2175,7 @@ function bindLandingEvents() {
       await refreshPitchStoryStatus_();
     } catch(error) {
       showToast('Reformulation indisponible',
-        'Le deck standard reste utilisable. '+greenInAiPublicError_(error),7000);
+        'Le deck standard reste utilisable. Consultez le diagnostic GreenIN AI sous le bouton. '+greenInAiPublicError_(error),7000);
       await refreshPitchStoryStatus_();
     } finally {
       const current=document.querySelector('[data-action="prepare-story"]');

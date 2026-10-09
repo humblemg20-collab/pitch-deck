@@ -139,6 +139,51 @@ function AG24_STORY_ready_(project,model) {
     return null;
   }
 }
+/**
+ * Expose only a safe diagnostic to the authenticated project holder.
+ * Never return raw OpenAI responses, credentials, questionnaire content or HTTP bodies.
+ */
+function AG24_STORY_failureDetail_(run) {
+  if(!run || run.status!=='FAILED')return null;
+  const raw=String(run.errorCode||'');
+  // Only known closed-form diagnostic codes may cross the authenticated API.
+  const allowed=/^(?:STORY_OPENAI_HTTP_\d{3}|STORY_OPENAI_(?:NETWORK_FAILURE|INCOMPLETE|INVALID_RESPONSE)|STORY_(?:SCHEMA_[A-Z_]+|TEXT_TOO_LONG|UNEXPECTED_FIELD|UNSUPPORTED_NUMBER|UNSUPPORTED_CLAIM|UNSAFE_COPY|INTERNAL_ERROR))$/;
+  const code=allowed.test(raw)?raw:'STORY_INTERNAL_ERROR';
+  let category='TECHNICAL',message='GreenIN AI a rencontré une difficulté technique.',
+    nextAction='Contactez le support en indiquant le code affiché.';
+  if(/^STORY_OPENAI_HTTP_401$|^STORY_OPENAI_HTTP_403$/.test(code)){
+    category='CONFIGURATION';
+    message='Le fournisseur technique refuse les identifiants ou les autorisations.';
+    nextAction='L’administrateur doit vérifier les droits et la configuration de la clé API.';
+  } else if(/^STORY_OPENAI_HTTP_400$/.test(code)){
+    category='CONFIGURATION';
+    message='Le fournisseur technique a refusé le format de la requête ou le modèle.';
+    nextAction='L’administrateur doit vérifier la configuration du modèle et les paramètres de la requête.';
+  } else if(/^STORY_OPENAI_HTTP_402$/.test(code)){
+    category='BILLING';
+    message='Le fournisseur technique refuse actuellement la facturation de cette requête.';
+    nextAction='L’administrateur doit vérifier la facturation API.';
+  } else if(/^STORY_OPENAI_HTTP_429$/.test(code)){
+    category='RATE_LIMIT';
+    message='Le fournisseur technique limite temporairement les requêtes.';
+    nextAction='Réessayez ultérieurement ; si cela persiste, contactez le support.';
+  } else if(/^STORY_OPENAI_HTTP_5\d\d$|^STORY_OPENAI_NETWORK_FAILURE$/.test(code)){
+    category='TRANSIENT';
+    message='La connexion au fournisseur technique a échoué ou son service est indisponible.';
+    nextAction='Réessayez plus tard. Le générateur standard reste disponible.';
+  } else if(/^STORY_OPENAI_INCOMPLETE$|^STORY_OPENAI_INVALID_RESPONSE$/.test(code)){
+    category='MODEL_OUTPUT';
+    message='GreenIN AI n’a pas reçu une réponse complète et structurée.';
+    nextAction='Réessayez plus tard. Si le problème se répète, contactez le support.';
+  } else if(/^STORY_(?:SCHEMA_[A-Z_]+|TEXT_TOO_LONG|UNEXPECTED_FIELD|UNSUPPORTED_NUMBER|UNSUPPORTED_CLAIM|UNSAFE_COPY)$/.test(code)){
+    category='QUALITY_REJECTED';
+    message='La reformulation a été refusée par le contrôle de qualité des affirmations.';
+    nextAction='Vérifiez les informations du projet. Réessayez après correction si nécessaire.';
+  }
+  return {code:code,category:category,message:message,nextAction:nextAction,
+    runId:String(run.runId||'').slice(0,80)};
+}
+
 function AG24_STORY_publicStatus_(project) {
   const cfg=AG24_IMPORT_config_();
   if(!cfg.configured)return {configured:false,status:'UNAVAILABLE',version:AG24_STORY.VERSION};
@@ -150,8 +195,11 @@ function AG24_STORY_publicStatus_(project) {
     return r.status==='RUNNING' &&
       Date.now()-new Date(r.createdAt).getTime()<AG24_STORY.IN_FLIGHT_MINUTES*60000;
   });
-  return {configured:true,status:running?'RUNNING':'NOT_READY',
-    model:cfg.model,version:AG24_STORY.VERSION};
+  const latest=match.runs.slice().reverse()[0]||null;
+  const failure=!running&&latest&&latest.status==='FAILED'?
+    AG24_STORY_failureDetail_(latest):null;
+  return {configured:true,status:running?'RUNNING':(failure?'FAILED':'NOT_READY'),
+    failure:failure,model:cfg.model,version:AG24_STORY.VERSION};
 }
 function apiPitchNarrativeStatus(projectId,token) {
   return safeApi_(function(){
@@ -233,6 +281,8 @@ function AG24_STORY_call_(source,project,model,key) {
       '6 title; 7 title; 8 title; 9 title; 10 title; 11 title; 12 body.',
       'Slide 12 body reformule seulement la vision; la demande de financement reste inchangée.',
       'Toutes les autres chaînes title/body/subtitle doivent être vides.',
+      'Chaque texte reformulé doit contenir 240 caractères maximum, espaces compris.',
+      'Si une information manque, ne crée pas de revendication pour remplir le champ.',
       'N utilise ni Markdown, ni HTML, ni URL. Réponses JSON strict uniquement.'
     ].join(' '),
     input:[{role:'user',content:[{type:'input_text',text:JSON.stringify({

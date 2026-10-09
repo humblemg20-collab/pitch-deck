@@ -133,7 +133,9 @@ test('rejects invented numeric facts and keeps free generation path available',(
  const result=f.prepare();
  assert.equal(result.ok,false);
  assert.equal(f.rows[1][4],'FAILED');
- assert.equal(f.status().data.status,'NOT_READY');
+ assert.equal(f.status().data.status,'FAILED');
+ assert.equal(f.status().data.failure.category,'QUALITY_REJECTED');
+ assert.equal(f.status().data.failure.code,'STORY_UNSUPPORTED_NUMBER');
  const slides=f.context.buildStandardDeckContent_(f.project);
  assert.equal(slides.length,12);
  assert.equal(f.context.AG24_STORY_applyCached_(f.project,slides).used,false);
@@ -190,4 +192,34 @@ test('sensitive emails, tokens and review data are not sent to OpenAI',()=>{
  assert.doesNotMatch(JSON.stringify(source),/private@example.com|confidential@example.com|valid-token/);
  assert.equal(source.funding.amountRequested,'1000000');
  assert.equal(source.review,undefined);
+});
+
+test('authenticated failures reveal safe actionable status without exposing tokens or provider response bodies',()=>{
+ const f=harness();
+ f.responseMode='http';
+ const failure=f.prepare();
+ assert.equal(failure.ok,false);
+ const report=f.status();
+ assert.equal(report.ok,true);
+ assert.equal(report.data.status,'FAILED');
+ assert.equal(report.data.failure.category,'RATE_LIMIT');
+ assert.equal(report.data.failure.code,'STORY_OPENAI_HTTP_429');
+ assert.match(report.data.failure.nextAction,/Réessayez/);
+ assert.doesNotMatch(JSON.stringify(report.data),/test-key|valid-token|private@example.com/);
+ assert.equal(f.status('bad-token').ok,false);
+ assert.equal(f.context.AG24_STORY_failureDetail_({
+   runId:'STORY-TEST',status:'FAILED',errorCode:'STORY_OPENAI_HTTP_401'
+ }).category,'CONFIGURATION');
+});
+test('quality failures and unknown errors never leak private diagnostic detail',()=>{
+ const f=harness(),d=f.context.AG24_STORY_failureDetail_;
+ const validation=d({runId:'STORY-1',status:'FAILED',errorCode:'STORY_UNSUPPORTED_CLAIM'});
+ assert.equal(validation.category,'QUALITY_REJECTED');
+ const unknown=d({runId:'STORY-2',status:'FAILED',errorCode:'UNTRUSTED_SECRET_VALUE'});
+ assert.equal(unknown.category,'TECHNICAL');
+ assert.equal(unknown.message.includes('UNTRUSTED_SECRET_VALUE'),false);
+ const u=read('App.html');
+ assert.match(u,/result.status==='FAILED' && result.failure/);
+ assert.match(u,/result.failure.nextAction/);
+ assert.match(u,/Code : /);
 });
