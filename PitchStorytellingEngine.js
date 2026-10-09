@@ -4,7 +4,7 @@
  * Raw questionnaire remains the only factual source of truth.
  */
 const AG24_STORY = Object.freeze({
-  VERSION:'pitch_story_v2_2_1',
+  VERSION:'pitch_story_v2_2_2',
   SHEET:'NarrativeRuns',
   HEADERS:Object.freeze(['runId','projectId','sourceHash','model','status',
     'fileId','errorCode','createdAt','updatedAt']),
@@ -135,8 +135,10 @@ function AG24_STORY_ready_(project,model) {
     // Revalidate cached model output against current raw questionnaire.
     const edits=AG24_STORY_validate_(parsed.edits,match.source);
     const count=Number(parsed.discardedOverlong);
+    const ignored=Number(parsed.discardedUnexpected);
     return {run:run,edits:edits,discardedOverlong:
-      isFinite(count)?Math.min(36,Math.max(0,Math.floor(count))):0};
+      isFinite(count)?Math.min(36,Math.max(0,Math.floor(count))):0,
+      discardedUnexpected:isFinite(ignored)?Math.min(36,Math.max(0,Math.floor(ignored))):0};
   } catch(error) {
     console.error('STORY_CACHE_READ_FAILURE',run.runId);
     return null;
@@ -196,7 +198,8 @@ function AG24_STORY_publicStatus_(project) {
   const ready=AG24_STORY_ready_(project,cfg.model);
   if(ready)return {configured:true,status:'READY',model:cfg.model,
     updatedAt:ready.run.updatedAt,version:AG24_STORY.VERSION,
-    discardedOverlong:ready.discardedOverlong||0};
+    discardedOverlong:ready.discardedOverlong||0,
+    discardedUnexpected:ready.discardedUnexpected||0};
   const running=match.runs.slice().reverse().find(function(r){
     return r.status==='RUNNING' &&
       Date.now()-new Date(r.createdAt).getTime()<AG24_STORY.IN_FLIGHT_MINUTES*60000;
@@ -238,7 +241,7 @@ function AG24_STORY_validate_(slides,source) {
   const riskWords=['contrat signé','clients payants','revenu généré','leader du marché',
     'certifié','partenariat signé','résultat garanti','rentabilité démontrée'];
   const output=[];
-  let discardedOverlong=0;
+  let discardedOverlong=0,discardedUnexpected=0;
   slides.forEach(function(item,index) {
     if(!item || item.number!==index+1)throw new Error('STORY_SCHEMA_SLIDE_ORDER');
     if(['title','body','subtitle'].some(function(key){
@@ -247,7 +250,13 @@ function AG24_STORY_validate_(slides,source) {
     const permitted=AG24_STORY.EDITS[index+1],edit={number:index+1};
     ['title','body','subtitle'].forEach(function(key) {
       const v=String(item[key]||'').trim().replace(/\s+/g,' ');
-      if(!permitted.includes(key) && v)throw new Error('STORY_UNEXPECTED_FIELD');
+      // Only fields on the per-slide allowlist may be applied. Other model
+      // output is never persisted to the deck, even if it contains claims,
+      // numbers, HTML or data that must not appear on that slide.
+      if(!permitted.includes(key)){
+        if(v)discardedUnexpected+=1;
+        return;
+      }
       if(!v)return;
       if(/https?:\/\/|<script|javascript:|information à compléter|source requise/i.test(v)) {
         throw new Error('STORY_UNSAFE_COPY');
@@ -272,6 +281,7 @@ function AG24_STORY_validate_(slides,source) {
     return Object.keys(edit).some(function(key){return key!=='number';});
   }))throw new Error('STORY_NO_USABLE_EDITS');
   Object.defineProperty(output,'discardedOverlong',{value:discardedOverlong});
+  Object.defineProperty(output,'discardedUnexpected',{value:discardedUnexpected});
   return output;
 }
 function AG24_STORY_call_(source,project,model,key) {
@@ -295,6 +305,7 @@ function AG24_STORY_call_(source,project,model,key) {
       '6 title; 7 title; 8 title; 9 title; 10 title; 11 title; 12 body.',
       'Slide 12 body reformule seulement la vision; la demande de financement reste inchangée.',
       'Toutes les autres chaînes title/body/subtitle doivent être vides.',
+      'Attention : les champs hors de cette liste seront systématiquement écartés.',
       'Chaque texte reformulé doit contenir 240 caractères maximum, espaces compris.',
       'Écris des titres courts (idéalement moins de 90 caractères) et des phrases simples.',
       'Si tu ne peux pas reformuler un champ dans cette limite, retourne une chaîne vide.',
@@ -331,6 +342,7 @@ function AG24_STORY_call_(source,project,model,key) {
   }
   const edits=AG24_STORY_validate_(parsed.slides,source);
   return {edits:edits,model:model,discardedOverlong:edits.discardedOverlong||0,
+    discardedUnexpected:edits.discardedUnexpected||0,
     usage:{inputTokens:Number((decoded.usage||{}).input_tokens||0),
       outputTokens:Number((decoded.usage||{}).output_tokens||0)}};
 }
@@ -346,7 +358,8 @@ function apiPreparePitchNarrative(input) {
       assertProjectToken_(project,token);
       const match=AG24_STORY_matching_(project,cfg.model);
       const ready=AG24_STORY_ready_(project,cfg.model);
-      if(ready)return {cached:true,discardedOverlong:ready.discardedOverlong||0};
+      if(ready)return {cached:true,discardedOverlong:ready.discardedOverlong||0,
+        discardedUnexpected:ready.discardedUnexpected||0};
       const inFlight=match.runs.find(function(r){
         return r.status==='RUNNING' &&
           Date.now()-new Date(r.createdAt).getTime()<AG24_STORY.IN_FLIGHT_MINUTES*60000;
@@ -367,7 +380,8 @@ function apiPreparePitchNarrative(input) {
       return {run:run,source:match.source,project:project};
     });
     if(task.cached)return {status:'READY',cached:true,
-      discardedOverlong:task.discardedOverlong||0};
+      discardedOverlong:task.discardedOverlong||0,
+      discardedUnexpected:task.discardedUnexpected||0};
     if(task.running)return {status:'RUNNING',cached:false};
     let generated;
     try {
@@ -387,7 +401,8 @@ function apiPreparePitchNarrative(input) {
         const folder=existing.hasNext()?existing.next():root.createFolder('narratives');
         const result={version:AG24_STORY.VERSION,sourceHash:task.run.sourceHash,
           model:cfg.model,edits:generated.edits,
-          discardedOverlong:generated.discardedOverlong||0};
+          discardedOverlong:generated.discardedOverlong||0,
+          discardedUnexpected:generated.discardedUnexpected||0};
         const file=folder.createFile(Utilities.newBlob(JSON.stringify(result),
           'application/json','story-'+task.run.runId+'.json'));
         try {
@@ -398,9 +413,11 @@ function apiPreparePitchNarrative(input) {
         }
         logEvent_(projectId,'STORY_READY',{runId:task.run.runId,
           sourceHash:task.run.sourceHash,model:cfg.model,usage:generated.usage,
-          discardedOverlong:generated.discardedOverlong||0});
+          discardedOverlong:generated.discardedOverlong||0,
+          discardedUnexpected:generated.discardedUnexpected||0});
         return {status:'READY',cached:false,
-          discardedOverlong:generated.discardedOverlong||0};
+          discardedOverlong:generated.discardedOverlong||0,
+          discardedUnexpected:generated.discardedUnexpected||0};
       });
     } catch(error) {
       const code=String(error&&error.message||'STORY_INTERNAL_ERROR');

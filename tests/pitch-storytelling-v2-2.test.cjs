@@ -73,6 +73,14 @@ function harness() {
         subtitle:allowed.includes('subtitle')?'Des sites internet pour développer la présence en ligne':''};
     });
     if(responseMode==='hallucination')slides[1].title='Nous avons signé 999 nouveaux contrats';
+    if(responseMode==='unexpected'){
+      slides[1].subtitle='Une promesse commerciale hors du champ autorisé';
+      slides[11].title='Une demande modifiée et interdite de 5000000 EUR';
+    }
+    if(responseMode==='all-unexpected'){
+      slides.forEach(slide=>{slide.title='';slide.body='';slide.subtitle='';});
+      slides[11].title='Texte jamais autorisé sur le montant de financement';
+    }
     if(responseMode==='overlength')slides[1].title='Ce projet offre un accompagnement numérique et une création de sites internet dédiés aux entreprises locales, en tenant compte des besoins déclarés par les entrepreneurs afin de renforcer leur présence en ligne dans le respect de leurs ressources disponibles.';
     if(responseMode==='all-overlength')slides.forEach((slide,i)=>{
       for(const key of ['title','body','subtitle']){
@@ -156,16 +164,22 @@ test('rejects incomplete structure and OpenAI transport failure',()=>{
  assert.equal(f.rows.length,3);
  assert.equal(f.rows[2][6],'STORY_OPENAI_HTTP_429');
 });
-test('schema disallows funding-amount rewrite, new numeric claims and unapproved copy fields',()=>{
+test('slide allowlist discards extra model fields without touching financing or weakening factual checks',()=>{
  const f=harness(),source=f.context.AG24_STORY_source_(f.project);
  const all=Array.from({length:12},(_,i)=>({number:i+1,title:'',body:'',subtitle:''}));
- all[11].title='5000000 EUR';
- assert.throws(()=>f.context.AG24_STORY_validate_(all,source),/STORY_UNEXPECTED_FIELD/);
- all[11].title='';
+ all[11].title='5000000 EUR'; // Forbidden on slide 12, never reaches the deck.
+ all[1].title='Une proposition claire pour les entrepreneurs';
+ let safe=f.context.AG24_STORY_validate_(all,source);
+ assert.equal(safe.discardedUnexpected,1);
+ assert.equal(safe[11].title,undefined);
+ assert.equal(safe[1].title,'Une proposition claire pour les entrepreneurs');
  all[1].title='Plus de 999 clients payants';
  assert.throws(()=>f.context.AG24_STORY_validate_(all,source),/STORY_UNSUPPORTED_NUMBER/);
- all[1].title='Garanties sur le projet';all[8].body='Autre information';
- assert.throws(()=>f.context.AG24_STORY_validate_(all,source),/STORY_UNEXPECTED_FIELD/);
+ all[1].title='Une solution adaptée aux besoins du projet';
+ all[8].body='Texte sans autorisation pour cette slide';
+ safe=f.context.AG24_STORY_validate_(all,source);
+ assert.equal(safe.discardedUnexpected,2);
+ assert.equal(safe[8].body,undefined);
 });
 test('resumed project has a separate explicit OpenAI action and safe status labels',()=>{
  const ui=read('App.html'),gen=read('SlidesGenerator.js');
@@ -267,4 +281,41 @@ test('overlong field containing fabricated numbers still fails security validati
  f.responseMode='overlength-fabrication';
  assert.equal(f.prepare().ok,false);
  assert.equal(f.status().data.failure.code,'STORY_UNSUPPORTED_NUMBER');
+});
+
+test('realistic extra model fields are discarded, audited and cached without a paid retry',()=>{
+ const f=harness(),before=JSON.stringify(f.project.data);
+ f.responseMode='unexpected';
+ const result=f.prepare();
+ assert.equal(result.ok,true,JSON.stringify(result.error));
+ assert.equal(result.data.status,'READY');
+ assert.equal(result.data.discardedUnexpected,2);
+ assert.equal(f.status().data.discardedUnexpected,2);
+ const slides=f.context.buildStandardDeckContent_(f.project);
+ const fundingTitle=slides[11].title;
+ const applied=f.context.AG24_STORY_applyCached_(f.project,slides);
+ assert.equal(applied.used,true);
+ assert.equal(slides[11].title,fundingTitle);
+ assert.equal(slides[1].subtitle,undefined);
+ assert.equal(slides[1].title,'Une proposition claire pour les entrepreneurs');
+ assert.equal(JSON.stringify(f.project.data),before);
+ assert.equal(f.prepare().data.discardedUnexpected,2);
+ assert.equal(f.calls,1);
+ assert.ok(f.events.some(e=>e.event==='STORY_READY'&&e.metadata.discardedUnexpected===2));
+});
+test('only forbidden fields must fail, never silently certify as an AI rewrite',()=>{
+ const f=harness();f.responseMode='all-unexpected';
+ assert.equal(f.prepare().ok,false);
+ const failed=f.status();
+ assert.equal(failed.data.status,'FAILED');
+ assert.equal(failed.data.failure.code,'STORY_NO_USABLE_EDITS');
+ assert.equal(f.context.AG24_STORY_applyCached_(f.project,
+  f.context.buildStandardDeckContent_(f.project)).used,false);
+});
+test('GreenIN AI UI exposes dropped-field count and retains disclosure',()=>{
+ const ui=read('App.html');
+ assert.match(ui,/result.discardedUnexpected/);
+ assert.ok(ui.includes('proposition(s) hors périmètre ignorées'));
+ assert.ok(ui.includes('proposition(s) écartées'));
+ assert.match(ui,/fournisseur technique de GreenIN AI/);
 });

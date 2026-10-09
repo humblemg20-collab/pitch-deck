@@ -2141,9 +2141,13 @@ function bindLandingEvents() {
       const node=document.getElementById('ag24-story-status');
       if(!node)return;
       node.textContent=result.status==='READY'?
-        (Number(result.discardedOverlong||0)>0?
-          'Reformulation GreenIN AI prête : '+Number(result.discardedOverlong)+' proposition(s) trop longues ont été ignorées ; les textes originaux correspondants sont conservés.':
-          'Reformulation GreenIN AI prête : elle sera utilisée lors de la prochaine génération du deck.') :
+        ('Reformulation GreenIN AI prête pour la prochaine génération du deck.'+
+          (Number(result.discardedOverlong||0)>0 ?
+            ' '+Number(result.discardedOverlong)+' proposition(s) trop longues ignorées.' : '')+
+          (Number(result.discardedUnexpected||0)>0 ?
+            ' '+Number(result.discardedUnexpected)+' proposition(s) hors périmètre ignorées.' : '')+
+          ((Number(result.discardedOverlong||0)+Number(result.discardedUnexpected||0))>0 ?
+            ' Les textes originaux correspondants sont conservés.' : '')) :
         result.status==='RUNNING'?'Reformulation en cours. Attendez la fin avant de générer.':
         result.status==='UNAVAILABLE'?'GreenIN AI n’est pas encore configuré. Le deck standard reste disponible.':
         result.status==='FAILED' && result.failure ?
@@ -2168,9 +2172,11 @@ function bindLandingEvents() {
       }));
       if(!state.project || state.project.projectId!==projectId)return;
       if(result.status==='READY') {
-        const kept=Number(result.discardedOverlong||0);
-        showToast('GreenIN AI : reformulation prête',kept>0?
-          'Reformulation partielle : '+kept+' proposition(s) trop longues ignorées sans modifier les réponses originales. Régénérez le deck.':
+        const overlong=Number(result.discardedOverlong||0);
+        const unexpected=Number(result.discardedUnexpected||0);
+        const partial=overlong+unexpected;
+        showToast('GreenIN AI : reformulation prête',partial>0?
+          'Reformulation partielle : '+partial+' proposition(s) écartées (longueur ou champ non autorisé). Le texte original est conservé. Régénérez le deck.':
           result.cached?
           'Reformulation existante réutilisée. Régénérez votre deck pour en profiter.':
           'Les 12 slides ont été reformulées. Régénérez votre deck pour utiliser cette version.',7000);
