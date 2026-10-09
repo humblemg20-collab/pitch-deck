@@ -277,6 +277,26 @@ function createStatementSlide_(slide,data) {
   }
   addSourceLine_(slide,data.proof,54,386,846);
 }
+function createInsightSlide_(slide,data) {
+  const theme=getPremiumTheme_();
+  addTextBox_(slide,ag24Text_(data.eyebrow,'CONTEXTE'),54,45,680,24,
+    {fontSize:11,bold:true,color:theme.green});
+  addTextBox_(slide,ag24Text_(data.title,'Le contexte du problème'),
+    54,91,820,116,{fontSize:29,bold:true,color:theme.white});
+  if(ag24Text_(data.body)) {
+    addPanel_(slide,54,233,540,138,theme.panel);
+    addTextBox_(slide,data.body,78,259,490,92,
+      {fontSize:18,color:theme.text});
+  }
+  if(ag24Text_(data.sideValue)) {
+    addTextBox_(slide,ag24Text_(data.sideLabel,'CONTEXTE').toUpperCase(),
+      636,238,250,24,{fontSize:10,bold:true,color:theme.green});
+    addTextBox_(slide,data.sideValue,636,273,253,81,
+      {fontSize:17,bold:true,color:theme.white});
+  }
+  addSourceLine_(slide,data.proof,54,385,840);
+}
+
 function createSolutionSlide_(slide,data) {
   const theme=getPremiumTheme_();
   addSectionHeader_(slide,data.eyebrow,data.title);
