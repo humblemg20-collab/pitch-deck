@@ -107,14 +107,30 @@ Assert-AG24 (Test-Path -LiteralPath (Join-Path $payload 'appsscript.json')) 'MIS
 $live = Get-AG24-Inventory $payload
 $proposed = Get-AG24-Inventory $repo
 $results = New-Object 'System.Collections.Generic.List[object]'
-$excluded = @('html:app_payment_patch')
+# Retire payment code only in the isolated staging copy, never from the live script
+# or from historical Google Sheets payment records.
+$retired = @(
+  'server:paymentadmin',
+  'server:paymentapi',
+  'server:paymentconfig',
+  'server:paymentsetup',
+  'server:paymentstorage',
+  'html:app_payment_patch'
+)
+foreach ($key in $retired) {
+  Assert-AG24 (-not $proposed.ContainsKey($key)) ('RETIRED_MODULE_REINTRODUCED:' + $key)
+  if ($live.ContainsKey($key)) {
+    $retiredFile = $live[$key]
+    Remove-Item -LiteralPath $retiredFile.FullName -Force
+    [void]$live.Remove($key)
+    $results.Add([pscustomobject]@{
+      Status='RETIRED_MODULE_REMOVED';Identity=$key;Live=$retiredFile.Name;GitHub=''
+    })
+  }
+}
 foreach ($item in @($proposed.GetEnumerator() | Sort-Object Key)) {
   $key = $item.Key
   $f = $item.Value
-  if ($excluded -contains $key) {
-    $results.Add([pscustomobject]@{Status='EXCLUDED_LEGACY_PATCH';Identity=$key;Live='';GitHub=$f.Name})
-    continue
-  }
   if ($key -eq 'manifest:appsscript') {
     $results.Add([pscustomobject]@{Status='LIVE_MANIFEST_PRESERVED';Identity=$key;Live='appsscript.json';GitHub='appsscript.json'})
     continue
@@ -191,6 +207,7 @@ $meta = [pscustomobject]@{
   baseCommit=$BaseCommit
   featureCommit=$ExpectedCommit
   preservedLiveOnly=@($results | Where-Object Status -eq 'LIVE_ONLY_PRESERVED').Count
+  retiredModulesRemoved=@($results | Where-Object Status -eq 'RETIRED_MODULE_REMOVED').Count
   mergedClean=@($results | Where-Object Status -eq 'MERGED_CLEAN').Count
   newFiles=@($results | Where-Object Status -eq 'NEW_STAGED').Count
   blockedIssues=$blocked
@@ -209,6 +226,7 @@ Write-Host ('RELEASE_ROOT=' + $releaseRoot)
 Write-Host ('RELEASE_REPORT=' + $csv)
 Write-Host ('SYMBOL_REPORT=' + $collisionReport)
 Write-Host 'LIVE_ONLY_FILES_PRESERVED=YES'
+Write-Host 'PAYMENT_MODULES_RETIRED_IN_STAGING=YES'
 Write-Host 'LIVE_MANIFEST_PRESERVED=YES'
 Write-Host 'OPENAI_KEY_UNTOUCHED=YES'
 Write-Host 'CLASP_PUSH=NOT_EXECUTED'

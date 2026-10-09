@@ -47,7 +47,6 @@ function stable() {
   & git -C $repo checkout -b $branch | Out-Null
   [IO.File]::WriteAllText((Join-Path $repo 'Api.js'),$feature)
   [IO.File]::WriteAllText((Join-Path $repo 'New.js'),'function brandNew() {}')
-  [IO.File]::WriteAllText((Join-Path $repo 'App_Payment_Patch.html'),'<p>Legacy unused</p>')
   [IO.File]::WriteAllText((Join-Path $repo 'appsscript.json'),'{"runtimeVersion":"V8","dependencies":{"services":[]}}')
   & git -C $repo add . | Out-Null
   & git -C $repo commit -m feature | Out-Null
@@ -56,6 +55,8 @@ function stable() {
 
   [IO.File]::WriteAllText((Join-Path $live 'Api.gs'),$liveChange)
   [IO.File]::WriteAllText((Join-Path $live 'Legacy.gs'),'function legacyKeepMe() {}')
+  [IO.File]::WriteAllText((Join-Path $live 'PaymentApi.gs'),'function apiVerifyPitchAccess() {}')
+  [IO.File]::WriteAllText((Join-Path $live 'App_Payment_Patch.html'),'<p>Legacy payment patch</p>')
   [IO.File]::WriteAllText((Join-Path $live 'appsscript.json'),'{"runtimeVersion":"V8","oauthScopes":["https://www.googleapis.com/auth/drive"]}')
   [IO.File]::WriteAllText((Join-Path $live '.clasp.json'),('{"scriptId":"' + $id + '"}'))
   Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -95,8 +96,9 @@ function stable() {
   if (-not (Test-Path (Join-Path $payload 'New.js'))) {
     throw 'NEW_FILE_NOT_STAGED'
   }
-  if (Test-Path (Join-Path $payload 'App_Payment_Patch.html')) {
-    throw 'UNUSED_PATCH_STAGED'
+  if ((Test-Path (Join-Path $payload 'App_Payment_Patch.html')) -or
+      (Test-Path (Join-Path $payload 'PaymentApi.gs'))) {
+    throw 'RETIRED_PAYMENT_CODE_STAGED'
   }
   $manifestText=[IO.File]::ReadAllText((Join-Path $payload 'appsscript.json'))
   if ($manifestText -notmatch 'oauthScopes' -or $manifestText -match 'services') {
@@ -107,7 +109,7 @@ function stable() {
   }
   $report=@(Import-Csv (Join-Path $releaseRoot 'release-impact.csv'))
   foreach ($expected in @('LIVE_ONLY_PRESERVED','MERGED_CLEAN','NEW_STAGED',
-    'LIVE_MANIFEST_PRESERVED','EXCLUDED_LEGACY_PATCH')) {
+    'LIVE_MANIFEST_PRESERVED','RETIRED_MODULE_REMOVED')) {
     if (-not @($report | Where-Object {$_.Status -eq $expected}).Count) {
       throw ('MISSING_STAGE_CATEGORY:'+$expected)
     }
@@ -125,7 +127,7 @@ function stable() {
   Write-Host 'THREE_WAY_MERGE=PASS'
   Write-Host 'NEW_FILES_STAGED=PASS'
   Write-Host 'LIVE_MANIFEST=PASS'
-  Write-Host 'LEGACY_PATCH_EXCLUDED=PASS'
+  Write-Host 'PAYMENT_MODULES_RETIRED=PASS'
   Write-Host 'BACKUP_GUARD=PASS'
   Write-Host 'REMOTE_WRITES=NONE'
 } finally {

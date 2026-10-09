@@ -113,12 +113,15 @@ $matchCount = @($signatures | Where-Object {
 }).Count
 Assert-AG24 ($matchCount -ge 3) ('NOT_PITCH:' + $matchCount)
 
+$retired = @('SERVER:paymentadmin','SERVER:paymentapi','SERVER:paymentconfig',
+  'SERVER:paymentsetup','SERVER:paymentstorage','HTML:app_payment_patch')
 $keys = @($live.Keys) + @($proposed.Keys) | Sort-Object -Unique
 $report = @(
   foreach ($key in $keys) {
     $before = $live[$key]
     $after = $proposed[$key]
-    $status = if (-not $after) { 'LIVE_ONLY' }
+    $status = if (-not $after -and $retired -contains $key) { 'RETIRED_IN_GITHUB' }
+      elseif (-not $after) { 'LIVE_ONLY' }
       elseif (-not $before) { 'NEW_IN_GITHUB' }
       elseif ($before.Hash -eq $after.Hash) { 'UNCHANGED' }
       else { 'MODIFIED' }
@@ -143,7 +146,7 @@ Write-Host "PITCH_SIGNATURES=$matchCount"
 Write-Host "GITHUB_COMMIT=$commit"
 Write-Host "LIVE_SOURCE_COUNT=$($live.Count)"
 Write-Host "GITHUB_SOURCE_COUNT=$($proposed.Count)"
-foreach ($kind in @('UNCHANGED','MODIFIED','NEW_IN_GITHUB','LIVE_ONLY')) {
+foreach ($kind in @('UNCHANGED','MODIFIED','NEW_IN_GITHUB','LIVE_ONLY','RETIRED_IN_GITHUB')) {
   Write-Host ('{0}={1}' -f $kind, @($report | Where-Object Status -eq $kind).Count)
 }
 $report | Sort-Object Status,Identity |
