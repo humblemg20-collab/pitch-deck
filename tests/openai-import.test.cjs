@@ -190,6 +190,6 @@ test('OpenAI import requires explicit server-side document consent',()=>{
   const f=setup();
   const denied=f.ctx.apiAnalyzeProjectDocument({projectId:'PITCH-1',token:'secret',assetId:'ASSET-1'});
   assert.equal(denied.ok,false);
-  assert.match(String(denied.error),'OPENAI_CONSENT_REQUIRED');
+  assert.match(String(denied.error),/OPENAI_CONSENT_REQUIRED/);
   assert.equal(f.requests.length,0);
 });
