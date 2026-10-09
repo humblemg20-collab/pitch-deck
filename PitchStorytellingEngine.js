@@ -164,11 +164,12 @@ function AG24_STORY_validate_(slides,source) {
   const output=[];
   slides.forEach(function(item,index) {
     if(!item || item.number!==index+1)throw new Error('STORY_SCHEMA_SLIDE_ORDER');
-    if(typeof item.title!=='string'||typeof item.body!=='string'||
-       typeof item.subtitle!=='string')throw new Error('STORY_SCHEMA_FIELDS');
+    if(['title','body','subtitle'].some(function(key){
+      return item[key]!==undefined && typeof item[key]!=='string';
+    }))throw new Error('STORY_SCHEMA_FIELDS');
     const permitted=AG24_STORY.EDITS[index+1],edit={number:index+1};
     ['title','body','subtitle'].forEach(function(key) {
-      const v=String(item[key]).trim().replace(/\s+/g,' ');
+      const v=String(item[key]||'').trim().replace(/\s+/g,' ');
       if(v.length>240)throw new Error('STORY_TEXT_TOO_LONG');
       if(!permitted.includes(key) && v)throw new Error('STORY_UNEXPECTED_FIELD');
       if(!v)return;
