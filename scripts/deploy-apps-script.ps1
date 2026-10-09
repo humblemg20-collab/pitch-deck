@@ -40,7 +40,7 @@ function Inventory([string]$Folder) {
  return ,$map
 }
 $repo=(Resolve-Path -LiteralPath $RepositoryRoot).Path
-$expectedBranch='feature/asset-engine-v1-20261008'
+$expectedBranch='main'
 $branch=(& git -C $repo branch --show-current | Out-String).Trim()
 $commit=(& git -C $repo rev-parse HEAD | Out-String).Trim()
 Assert-Safe ($branch -eq $expectedBranch) 'WRONG_BRANCH'
@@ -81,6 +81,53 @@ $payload=Join-Path $stage 'payload'
 $want=Inventory $payload
 $retired=@('server:paymentadmin','server:paymentapi','server:paymentconfig','server:paymentsetup','server:paymentstorage','html:app_payment_patch')
 foreach($key in $retired){Assert-Safe (-not $want.ContainsKey($key)) ('LEGACY_PAYMENT_PRESENT:'+ $key)}
+# Legacy live-only modules must not re-expose public google.script.run calls.
+foreach($server in @(Get-ChildItem -LiteralPath $payload -File | Where-Object { $_.Extension -in @('.js','.gs') })) {
+ $content=[IO.File]::ReadAllText($server.FullName)
+ foreach($match in [regex]::Matches($content,'(?m)^function\s+([A-Za-z_$][A-Za-z0-9_$]*)\s*\(')) {
+  $name=$match.Groups[1].Value
+  $allowed=($name -eq 'doGet' -or $name -eq 'doPost' -or $name -match '^api[A-Z]\w*
+if ($Mode -eq 'audit') {
+ Write-Host 'REMOTE_CODE_UNCHANGED=YES'
+ Write-Host 'RELEASE_RESULT=AUDIT_PASS'
+ exit 0
+}
+$attempted=$false
+try {
+ $attempted=$true
+ Run-Clasp $payload @('push','--force')
+ $verify=Join-Path $work 'verify'
+ New-Item -ItemType Directory -Path $verify -Force | Out-Null
+ Copy-Item (Join-Path $payload '.clasp.json') (Join-Path $verify '.clasp.json')
+ Run-Clasp $verify @('pull')
+ $actual=Inventory $verify
+ Assert-Safe ($actual.Count -eq $want.Count) 'VERIFICATION_COUNT_MISMATCH'
+ foreach($key in $want.Keys){
+  Assert-Safe ($actual.ContainsKey($key) -and $actual[$key] -eq $want[$key]) ('VERIFICATION_MISMATCH:'+ $key)
+ }
+ Write-Host 'PUSH_VERIFY=PASS'
+ Write-Host 'VERSIONED_WEBAPP_DEPLOYMENT_UNCHANGED=YES'
+ Write-Host 'RELEASE_RESULT=HEAD_PUSH_PASS'
+} catch {
+ $failure=$_.Exception.Message
+ Write-Host ('PUSH_OR_VERIFY_ERROR='+$failure)
+ if($attempted) {
+  Write-Host 'AUTOMATIC_ROLLBACK=START'
+  try {
+   Run-Clasp $live @('push','--force')
+   Write-Host 'AUTOMATIC_ROLLBACK=PASS'
+  } catch {
+   Write-Host 'AUTOMATIC_ROLLBACK=FAILED'
+   throw ('MANUAL_RECOVERY_REQUIRED:'+ $failure)
+  }
+ }
+ throw ('RELEASE_FAILED:'+ $failure)
+}
+ -or $name.EndsWith('_'))
+  Assert-Safe $allowed ('UNSAFE_PUBLIC_RPC_IN_STAGE:'+ $server.Name+':'+$name)
+ }
+}
+
 Write-Host 'STAGING_VALIDATION=PASS'
 if ($Mode -eq 'audit') {
  Write-Host 'REMOTE_CODE_UNCHANGED=YES'
