@@ -65,7 +65,8 @@ function harness() {
     calls++;lastRequest=JSON.parse(options.payload);
     if(responseMode==='http')return {getResponseCode:()=>429,getContentText:()=>''};
     const slides=Array.from({length:12},(_,i)=>{
-      const n=i+1,allowed=context.AG24_STORY.EDITS[n];
+      const n=i+1,allowed=n===1?['subtitle']:n===12?['body']:
+        [2,3,4].includes(n)?['title','body']:['title'];
       return {number:n,
         title:allowed.includes('title')?'Une proposition claire pour les entrepreneurs':'',
         body:allowed.includes('body')?'Une solution numérique adaptée au besoin exprimé':'',
