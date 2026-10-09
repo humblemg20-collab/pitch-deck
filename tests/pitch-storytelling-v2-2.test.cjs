@@ -98,7 +98,7 @@ test('consent must be explicit and token checked even for cached analysis',()=>{
 test('OpenAI writes only versioned narrative, never modifies original answers',()=>{
  const f=harness(),initial=JSON.stringify(f.project.data);
  const result=f.prepare();
- assert.equal(result.ok,true,JSON.stringify(result.error));
+ assert.equal(result.ok,true,JSON.stringify({error:result.error,events:f.events,rows:f.rows}));
  assert.equal(result.data.status,'READY');
  assert.equal(f.calls,1);
  assert.equal(JSON.stringify(f.project.data),initial);
