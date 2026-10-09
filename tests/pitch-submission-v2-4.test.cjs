@@ -137,6 +137,7 @@ test('submission hides private labels and keeps page numbering, preview remains 
  ctx.addTextBox_=(slide,text)=>textCalls.push(String(text));
  vm.createContext(ctx);
  vm.runInContext(source,ctx);
+ ctx.addTextBox_=(slide,text)=>textCalls.push(String(text));
  const slide={insertShape:()=>({getFill:()=>({setSolidFill(){}})})};
  ctx.addPremiumFooter_(slide,1,12,'BROUILLON',true,'EcoCommerce');
  assert.ok(textCalls.some(x=>x.includes('EcoCommerce')));

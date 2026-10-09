@@ -2292,7 +2292,8 @@ function bindLandingEvents() {
         'Les informations ont changé ou des points restent à corriger. '+(error&&error.message||''),6500);
       await refreshPitchSubmission_();
     } finally {
-      if(button)button.disabled=false;
+      // Readiness, never the completion handler, owns this control's state.
+      await refreshPitchSubmission_();
     }
   }
 

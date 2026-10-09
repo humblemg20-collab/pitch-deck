@@ -73,7 +73,7 @@ function AG24_SUBMISSION_gate_(project) {
   if(weak(v('identity','tagline'),22)){
     add('TAGLINE_UNCLEAR','identity','Préciser en une phrase le client, la solution et son bénéfice.');
   }
-  if(weak(v('problem','problemDescription'),40)){
+  if(weak(v('problem','problemDescription'),55)){
     add('PROBLEM_GENERIC','problem','Décrire un problème concret, ciblé et compréhensible par un financeur.');
   }
   if(weak(v('problem','targetUser'),18)){

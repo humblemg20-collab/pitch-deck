@@ -192,7 +192,8 @@ test('single PDF path and known content builder', () => {
   const api=read('Api.js');
   const slides=read('SlidesGenerator.js');
   assert.doesNotMatch(api,/buildStandardDeckContent_\s*\(/);
-  assert.match(api,/generateStandardPresentation_\s*\(\s*project\s*\)/);
+  assert.match(api,/generateStandardPresentation_\s*\(\s*project\s*,\s*\{submission:/);
+  assert.match(api,/exportPresentationToPdf_\s*\(\s*project\s*,\s*presentation\s*\)/);
   assert.doesNotMatch(slides,/exportStandardPresentationToPdf_\s*\(/);
   assert.match(slides,/AG24_SLIDE_placeImage_/);
   assert.match(read('PdfExporter.js'),/getOrCreateGeneratedFolder_/);
