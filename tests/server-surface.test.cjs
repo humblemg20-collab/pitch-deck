@@ -11,7 +11,7 @@ test('no public admin, setup, testing, slide-generation or utility functions in 
     }
   }
   const publicFunctions=definitions.filter(f=>!f.name.endsWith('_'));
-  const unsafe=publicFunctions.filter(f=>f.name!=='doGet'&&!/^api[A-Z]\w*$/.test(f.name));
+  const unsafe=publicFunctions.filter(f=>f.name!=='doGet'&&f.name!=='doPost'&&!/^api[A-Z]\w*$/.test(f.name));
   assert.deepEqual(unsafe,[], 'server functions reachable via google.script.run must only expose approved API');
   assert.ok(publicFunctions.some(f=>f.name==='apiCreateProject'));
   assert.ok(publicFunctions.some(f=>f.name==='doGet'));
@@ -22,4 +22,11 @@ test('free project cannot bypass token checks on document operations',()=>{
   assert.match(api,/assertProjectToken_\(project, token\)/);
   assert.match(assets,/function AG24_ASSET_authorize_/);
   assert.match(assets,/assertProjectToken_\(project, token\)/);
+});
+
+test('doPost requires server-side secret authentication before handling requests',()=>{
+  const src=fs.readFileSync(path.join(root,'PitchStudio_AfriGreenConnectorV1_1_0.js'),'utf8');
+  assert.match(src,/function doPost\(e\)/);
+  assert.match(src,/pitchAgAuthenticate_\(req.secret\)/);
+  assert.match(src,/PITCH_AFRIGREEN_CONNECTOR_SECRET/);
 });

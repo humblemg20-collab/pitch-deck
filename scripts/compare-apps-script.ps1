@@ -8,7 +8,7 @@ param(
   [Parameter(Mandatory=$true)][string]$ExpectedBackupSha256,
   [Parameter(Mandatory=$true)][string]$ExpectedScriptId,
   [string]$RepositoryRoot = (Split-Path -Parent $PSScriptRoot),
-  [string]$ExpectedBranch = 'feature/asset-engine-v1-20261008',
+  [string]$ExpectedBranch = 'main',
   [string]$ExpectedCommit = ''
 )
 Set-StrictMode -Version Latest

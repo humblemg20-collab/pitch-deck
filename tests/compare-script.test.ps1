@@ -23,7 +23,7 @@ try {
   [System.IO.File]::WriteAllText((Join-Path $repo 'New.js'), 'function newModule() {}')
   [System.IO.File]::WriteAllText((Join-Path $repo 'appsscript.json'), '{"runtimeVersion":"V8"}')
 
-  & git -C $repo init -b feature/asset-engine-v1-20261008 | Out-Null
+  & git -C $repo init -b main | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'TEST_GIT_INIT_FAILED' }
   & git -C $repo config user.email ci@example.invalid
   & git -C $repo config user.name 'AG24 CI'

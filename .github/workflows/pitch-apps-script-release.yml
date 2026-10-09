@@ -1,0 +1,79 @@
+name: PitchStudio - deploy Apps Script HEAD safely
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        description: "audit = remote backup + staging, push = guarded HEAD update"
+        required: true
+        default: audit
+        options:
+          - audit
+          - push
+      commit_sha:
+        description: "Exact reviewed full 40-character commit SHA on main"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pitchstudio-appsscript-live
+  cancel-in-progress: false
+
+jobs:
+  pitch-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: pitch-apps-script
+    steps:
+      - name: Checkout pinned source from canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify pinned main revision
+        shell: pwsh
+        env:
+          EXPECTED_SHA: ${{ inputs.commit_sha }}
+        run: |
+          if ($env:EXPECTED_SHA -notmatch '^[a-f0-9]{40}$') { throw 'INVALID_RELEASE_SHA' }
+          $got=(& git rev-parse HEAD | Out-String).Trim()
+          if ($got -ne $env:EXPECTED_SHA) { throw 'CANONICAL_MAIN_SHA_CHANGED' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run all JavaScript regression tests
+        run: node --test tests/*.test.cjs
+      - name: Verify staging PowerShell contracts
+        shell: pwsh
+        run: |
+          ./tests/compare-script.test.ps1
+          ./tests/stage-safe-release.test.ps1
+          ./tests/inspect-release-conflicts.test.ps1
+      - name: Install clasp CLI
+        run: npm install --global @google/clasp
+      - name: Backup live code, reconcile, audit and optionally push HEAD
+        shell: pwsh
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+          CLASP_JSON: ${{ secrets.CLASP_JSON }}
+          PITCH_SCRIPT_ID: ${{ vars.PITCH_SCRIPT_ID }}
+          EXPECTED_SHA: ${{ inputs.commit_sha }}
+          RELEASE_MODE: ${{ inputs.mode }}
+        run: |
+          ./scripts/deploy-apps-script.ps1 -Mode $env:RELEASE_MODE -ExpectedCommit $env:EXPECTED_SHA
+      - name: Keep release backup and evidence on failure and success
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pitchstudio-release-safety-evidence
+          path: |
+            ${{ runner.temp }}/ag24-pitch-release/remote-before.zip
+            ${{ runner.temp }}/ag24-pitch-release/staging/**/manifest.json
+            ${{ runner.temp }}/ag24-pitch-release/staging/**/release-impact.csv
+            ${{ runner.temp }}/ag24-pitch-release/staging/**/global-symbol-collisions.txt
+          if-no-files-found: warn
+          retention-days: 30
