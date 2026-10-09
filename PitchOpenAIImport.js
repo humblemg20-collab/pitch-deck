@@ -254,7 +254,7 @@ function apiAnalyzeProjectDocument(input) {
     // Consent is mandatory on the server, not merely a front-end confirmation.
     if (!input || input.consent !== true) throw new Error('OPENAI_CONSENT_REQUIRED');
     const cfg=AG24_IMPORT_config_();
-    if (!cfg.configured) throw new Error('OpenAI non configuré côté serveur.');
+    if (!cfg.configured) throw new Error('GreenIN AI n’est pas configuré côté serveur.');
     const task=withScriptLock_(function() {
       const project=AG24_ASSET_authorize_(projectId,token);
       const asset=AG24_IMPORT_assertDocument_(project,assetId);

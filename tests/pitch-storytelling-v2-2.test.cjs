@@ -161,7 +161,8 @@ test('schema disallows funding-amount rewrite, new numeric claims and unapproved
 test('resumed project has a separate explicit OpenAI action and safe status labels',()=>{
  const ui=read('App.html'),gen=read('SlidesGenerator.js');
  assert.match(ui,/function preparePitchStory_\(/);
- assert.match(ui,/window\.confirm\('Autoriser l’envoi des réponses/);
+ assert.match(ui,/window\.confirm\('Autoriser GreenIN AI à reformuler/);
+ assert.match(ui,/fournisseur technique de GreenIN AI/);
  assert.match(ui,/apiPreparePitchNarrative/);
  assert.match(ui,/consent:true/);
  assert.match(ui,/apiPitchNarrativeStatus/);

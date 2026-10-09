@@ -19,7 +19,7 @@ jobs:
         with:
           node-version: "22"
       - name: Verify canonical upload, recovery and Slides contracts
-        run: node --test tests/asset-engine.test.cjs tests/openai-import.test.cjs tests/resume-link.test.cjs tests/free-studio.test.cjs tests/server-surface.test.cjs tests/project-limit.test.cjs tests/deploy-contract.test.cjs tests/afrigreen-connector.test.cjs tests/pitch-presentation-v2-1.test.cjs tests/pitch-storytelling-v2-2.test.cjs
+        run: node --test tests/asset-engine.test.cjs tests/openai-import.test.cjs tests/resume-link.test.cjs tests/free-studio.test.cjs tests/server-surface.test.cjs tests/project-limit.test.cjs tests/deploy-contract.test.cjs tests/afrigreen-connector.test.cjs tests/pitch-presentation-v2-1.test.cjs tests/pitch-storytelling-v2-2.test.cjs tests/greenin-ai-brand.test.cjs
       - name: Verify PowerShell read-only backup comparison engine
         shell: pwsh
         run: ./tests/compare-script.test.ps1
