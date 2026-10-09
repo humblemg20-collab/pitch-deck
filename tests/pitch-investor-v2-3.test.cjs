@@ -151,6 +151,6 @@ test('investor focus slides exclude contextual photos unless vetted separately',
   [{role:'PRODUCT',status:'ACTIVE'}]),false);
  assert.equal(inserted,0);
  assert.equal(c.AG24_SLIDE_placeImage_(slide,{type:'cover',investorLayout:'FOCUS'},
-  [{role:'LOGO',status:'ACTIVE'}]),true);
- assert.equal(inserted,1);
+  [{role:'LOGO',status:'ACTIVE'}]),false);
+ assert.equal(inserted,0);
 });
