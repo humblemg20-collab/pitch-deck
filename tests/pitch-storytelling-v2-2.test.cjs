@@ -120,9 +120,7 @@ test('OpenAI writes only versioned narrative, never modifies original answers',(
 test('modified questionnaire invalidates old storytelling without losing the saved run',()=>{
  const f=harness();assert.equal(f.prepare().ok,true);
  f.project.data.solution.solutionDescription='Nouvelle solution numérique pour les écoles';
- assert.equal(f.status().data.status,'FAILED');
- assert.equal(f.status().data.failure.category,'QUALITY_REJECTED');
- assert.equal(f.status().data.failure.code,'STORY_UNSUPPORTED_NUMBER');
+ assert.equal(f.status().data.status,'NOT_READY');
  const slides=f.context.buildStandardDeckContent_(f.project);
  assert.equal(f.context.AG24_STORY_applyCached_(f.project,slides).used,false);
  assert.equal(f.prepare().ok,true);
@@ -135,7 +133,9 @@ test('rejects invented numeric facts and keeps free generation path available',(
  const result=f.prepare();
  assert.equal(result.ok,false);
  assert.equal(f.rows[1][4],'FAILED');
- assert.equal(f.status().data.status,'NOT_READY');
+ assert.equal(f.status().data.status,'FAILED');
+ assert.equal(f.status().data.failure.category,'QUALITY_REJECTED');
+ assert.equal(f.status().data.failure.code,'STORY_UNSUPPORTED_NUMBER');
  const slides=f.context.buildStandardDeckContent_(f.project);
  assert.equal(slides.length,12);
  assert.equal(f.context.AG24_STORY_applyCached_(f.project,slides).used,false);
