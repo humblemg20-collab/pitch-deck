@@ -69,6 +69,7 @@ function publicProject_(project) {
     data: project.data,
     progress: project.progress,
     score: project.score,
+    presentationQuality: AG24_PITCH_quality_(project),
     alerts: project.alerts,
     status: project.status,
     createdAt: project.createdAt,

@@ -20,7 +20,7 @@ function AG24_SLIDE_placeImage_(slide, slideData, assets) {
   if (kind === 'cover') {
     asset = AG24_SLIDE_selectAsset_(assets, ['COVER_HERO', 'LOGO']);
     box = asset && asset.role === 'LOGO'
-      ? [708, 85, 145, 125] : [665, 65, 230, 320];
+      ? [714, 95, 126, 128] : [668, 77, 218, 298];
   } else if (kind === 'solution') {
     asset = AG24_SLIDE_selectAsset_(assets, ['PRODUCT', 'SOLUTION']);
     box = [654, 196, 242, 160];
@@ -32,15 +32,23 @@ function AG24_SLIDE_placeImage_(slide, slideData, assets) {
 
   // Fail visibly for a missing registered file: don't publish a silently incomplete deck.
   const blob = AG24_ASSET_imageBlob_(asset);
-  slide.insertImage(
-    blob,
-    ag24ScaleX_(box[0]), ag24ScaleY_(box[1]),
-    ag24ScaleX_(box[2]), ag24ScaleY_(box[3])
-  );
-  if (kind === 'solution') {
+  // Fit into the visual slot without stretching user photos or documents.
+  const image = slide.insertImage(blob);
+  const targetX=ag24ScaleX_(box[0]), targetY=ag24ScaleY_(box[1]);
+  const targetWidth=ag24ScaleX_(box[2]), targetHeight=ag24ScaleY_(box[3]);
+  const originalWidth=image.getWidth(),originalHeight=image.getHeight();
+  if(!(originalWidth>0&&originalHeight>0)) throw new Error('ASSET_IMAGE_DIMENSIONS_INVALID');
+  const fit=Math.min(targetWidth/originalWidth,targetHeight/originalHeight);
+  const fittedWidth=originalWidth*fit,fittedHeight=originalHeight*fit;
+  image.setWidth(fittedWidth);
+  image.setHeight(fittedHeight);
+  image.setLeft(targetX+(targetWidth-fittedWidth)/2);
+  image.setTop(targetY+(targetHeight-fittedHeight)/2);
+
+  if (kind === 'solution' && ag24Text_(slideData.status)) {
     const theme = getPremiumTheme_();
     addPanel_(slide, 650, 332, 250, 28, theme.panelAlt);
-    addTextBox_(slide, ag24Text_(slideData.status, 'Stade à préciser'),
+    addTextBox_(slide, ag24Text_(slideData.status),
       660, 338, 230, 16, {fontSize: 10, color: theme.white});
   }
   return true;
