@@ -14,7 +14,13 @@
     saveTimer: null,
     saving: false,
     generationTimer: null,
-    resumeUrl: ''
+    resumeUrl: '',
+    assets: [],
+    assetPreviews: {},
+    assetBusy: false,
+    imports: [],
+    importBusy: false,
+    savePromise: null
   };
 
   let app = null;
@@ -77,33 +83,54 @@
     const configuredBase = state.bootstrap && state.bootstrap.config ? state.bootstrap.config.webAppUrl : '';
     const base = String(configuredBase || '').trim().split('?')[0];
     if (!base) return '';
-    return base + '?project=' + encodeURIComponent(state.project.projectId) + '&token=' + encodeURIComponent(state.token);
+    return base + '#project=' + encodeURIComponent(state.project.projectId) + '&token=' + encodeURIComponent(state.token);
   }
 
   function setUrl(projectId, token) {
     if (!projectId || !token) return;
+    // The canonical URL is returned to the user; don't store a token in a
+    // query parameter of the sandboxed Apps Script iframe.
     state.resumeUrl = buildResumeUrl();
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.set('project', projectId);
-      url.searchParams.set('token', token);
-      window.history.replaceState({}, '', url.toString());
-    } catch (error) {
-      // L'URL interne de l'iframe Apps Script n'est pas utilisée comme lien de reprise.
-    }
   }
 
   function clearUrl() {
     state.resumeUrl = '';
+  }
 
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.delete('project');
-      url.searchParams.delete('token');
-      window.history.replaceState({}, '', url.toString());
-    } catch (error) {
-      console.warn("Impossible de nettoyer l'URL interne Apps Script :", error);
-    }
+  function readInitialResumeParams_() {
+    const legacy = window.AG24_INITIAL_STATE || {};
+    const fallback = {
+      projectId: String(legacy.projectId || ''),
+      token: String(legacy.token || '')
+    };
+    return new Promise(function(resolve) {
+      if (typeof google === 'undefined' || !google.script ||
+          !google.script.url || !google.script.url.getLocation) {
+        resolve(fallback); return;
+      }
+      let settled = false;
+      const finish = function(value) {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+      // Avoid permanently blocking the startup if the Apps Script URL
+      // service is unavailable in an embedded webview.
+      window.setTimeout(function() {finish(fallback);}, 1700);
+      try {
+        google.script.url.getLocation(function(location) {
+          const params = location && location.parameter || {};
+          const fragment = new URLSearchParams(
+            String(location && location.hash || '').replace(/^#/, '')
+          );
+          const projectId = fragment.get('project') ||
+            fallback.projectId || String(params.project || '');
+          const token = fragment.get('token') ||
+            fallback.token || String(params.token || '');
+          finish({projectId:projectId, token:token});
+        });
+      } catch (error) { finish(fallback); }
+    });
   }
 
   function showToast(title, message, timeout) {
@@ -184,7 +211,7 @@
         return;
       }
 
-      const initial = window.AG24_INITIAL_STATE || {};
+      const initial = await readInitialResumeParams_();
 
       if (initial.projectId && initial.token) {
         try {
@@ -205,6 +232,7 @@
           state.resumeUrl = buildResumeUrl();
 
           renderJourney();
+          refreshProjectAssets();
           return;
 
         } catch (error) {
@@ -254,6 +282,9 @@
  function renderLanding() {
   state.project = null;
   state.token = '';
+  state.assets = [];
+  state.imports = [];
+  state.assetPreviews = {};
   clearUrl();
 
   const root = getAppRoot_();
@@ -378,7 +409,7 @@
         margin-top: 32px;
       }
 
-      .ag24-selar-button {
+      .ag24-primary-cta {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -396,7 +427,7 @@
         transition: transform 0.2s ease, box-shadow 0.2s ease;
       }
 
-      .ag24-selar-button:hover {
+      .ag24-primary-cta:hover {
         transform: translateY(-2px);
         box-shadow: 0 20px 42px rgba(15, 117, 72, 0.28);
       }
@@ -679,16 +710,6 @@
         margin-bottom: 24px;
       }
 
-      .ag24-payment-note {
-        margin: 18px 0 0;
-        padding: 15px;
-        border-radius: 14px;
-        background: #f1f8f4;
-        color: #536e63;
-        font-size: 0.84rem;
-        line-height: 1.55;
-      }
-
       .ag24-footer {
         padding: 34px 0;
         background: #08291f;
@@ -726,7 +747,7 @@
           display: none;
         }
 
-        .ag24-nav-actions .ag24-selar-button {
+        .ag24-nav-actions .ag24-primary-cta {
           display: none;
         }
 
@@ -742,7 +763,7 @@
           flex-direction: column;
         }
 
-        .ag24-selar-button,
+        .ag24-primary-cta,
         .ag24-access-button {
           width: 100%;
         }
@@ -785,10 +806,10 @@
 
           <button
             type="button"
-            class="ag24-selar-button"
-            data-selar-payment
+            class="ag24-primary-cta"
+            data-scroll-access
           >
-            Acheter mon accès
+            Créer mon Pitch Deck
           </button>
         </div>
       </header>
@@ -818,23 +839,23 @@
             <div class="ag24-sales-actions">
              <button
                 type="button"
-                class="ag24-selar-button"
-                data-selar-payment
+                class="ag24-primary-cta"
+                data-scroll-access
               >
-                Payer sur Selar et obtenir mon accès
+                Commencer gratuitement
               </button>
 
               <button
                 type="button"
                 class="ag24-access-button"
-                data-scroll-access
+                data-entry="resume"
               >
-                J’ai déjà payé
+                Reprendre un projet
               </button>
             </div>
 
             <div class="ag24-sales-trust">
-              <span>Paiement sécurisé sur Selar</span>
+              <span>Accès libre au studio</span>
               <span>Google Slides modifiable</span>
               <span>Export PDF professionnel</span>
             </div>
@@ -966,7 +987,7 @@
               <span class="ag24-sales-badge">Comment cela fonctionne</span>
 
               <h2>
-                De votre paiement à votre présentation.
+                De votre idée à votre présentation.
               </h2>
             </div>
 
@@ -974,18 +995,12 @@
 
               <article class="ag24-process-card">
                 <span>1</span>
-                <strong>Payez sur Selar</strong>
-                <p>
-                  Effectuez votre achat à partir de la page de paiement sécurisée.
-                </p>
+                <strong>Créez votre espace</strong><p>Indiquez le nom de votre projet et votre adresse e-mail.</p>
               </article>
 
               <article class="ag24-process-card">
                 <span>2</span>
-                <strong>Recevez votre code</strong>
-                <p>
-                  Après validation, votre code personnel d’accès vous est transmis.
-                </p>
+                <strong>Construisez votre dossier</strong><p>Complétez le questionnaire et sauvegardez votre progression.</p>
               </article>
 
               <article class="ag24-process-card">
@@ -1021,17 +1036,15 @@
               </span>
 
               <h2>
-                Vous avez déjà effectué votre paiement ?
+                Prêt à structurer votre projet ?
               </h2>
 
               <p>
-                Entrez l’adresse e-mail utilisée lors de votre paiement
-                ainsi que votre code d’accès personnel pour commencer
-                la création de votre Pitch Deck.
+                Entrez le nom de votre projet et votre adresse e-mail pour commencer gratuitement. Vous recevrez un code privé pour reprendre votre travail.
               </p>
 
               <ul>
-                <li>Un code personnel et utilisable une seule fois</li>
+                <li>Un espace gratuit et un code privé de reprise</li>
                 <li>Sauvegarde automatique de votre progression</li>
                 <li>Lien privé pour reprendre votre projet</li>
               </ul>
@@ -1047,7 +1060,7 @@
 
               <p>
                 ${state.entryMode === 'create'
-                  ? 'Votre paiement doit avoir été validé avant la création du projet.'
+                  ? 'Créez votre projet gratuitement et conservez votre code de reprise.'
                   : 'Utilisez votre identifiant et votre code de reprise.'}
               </p>
 
@@ -1057,7 +1070,7 @@
                   class="tab ${state.entryMode === 'create' ? 'active' : ''}"
                   data-entry="create"
                 >
-                  J’ai payé
+                  Créer un projet
                 </button>
 
                 <button
@@ -1072,19 +1085,6 @@
               ${state.entryMode === 'create'
                 ? renderCreateForm()
                 : renderResumeForm()}
-
-              ${
-                state.entryMode === 'create'
-                  ? `
-                    <div class="ag24-payment-note">
-                      Vous n’avez pas encore de code ?
-                      Effectuez d’abord votre paiement sur Selar,
-                      puis revenez sur cette page avec votre e-mail
-                      et votre code d’accès.
-                    </div>
-                  `
-                  : ''
-              }
             </div>
 
           </div>
@@ -1125,7 +1125,7 @@ function renderCreateForm() {
 
       <div class="field">
         <label>
-          E-mail utilisé pour le paiement
+          Adresse e-mail
           <span class="required">*</span>
         </label>
 
@@ -1138,28 +1138,7 @@ function renderCreateForm() {
         >
 
         <div class="field-help">
-          Utilisez exactement l’adresse e-mail associée à votre paiement Selar.
-        </div>
-      </div>
-
-
-      <div class="field">
-        <label>
-          Code d’accès au Pitch Deck
-          <span class="required">*</span>
-        </label>
-
-        <input
-          name="paymentAccessCode"
-          type="text"
-          required
-          autocomplete="off"
-          maxlength="32"
-          placeholder="AG24-PD-XXXXXXXXXX"
-        >
-
-        <div class="field-help">
-          Ce code est transmis après validation de votre paiement.
+          Un e-mail contenant vos informations de reprise vous sera envoyé.
         </div>
       </div>
 
@@ -1184,25 +1163,9 @@ function renderCreateForm() {
         type="submit"
         style="width:100%;margin-top:24px;"
       >
-        Vérifier mon accès et commencer
+        Créer mon projet
       </button>
 
-
-      <button
-        type="button"
-        class="btn btn-secondary"
-        data-selar-payment
-        style="
-          width:100%;
-          margin-top:12px;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          cursor:pointer;
-        "
-      >
-        Je n’ai pas encore payé — Acheter mon accès
-      </button>
 
     </form>
   `;
@@ -1226,75 +1189,7 @@ function renderCreateForm() {
         <button class="btn btn-primary btn-large" type="submit" style="width:100%;">Reprendre mon projet</button>
       </form>`;
   }
-  function unwrapPaymentResponse(response) {
-    if (response && response.ok === true) {
-      return unwrap(response);
-    }
-
-    if (response && response.success === true) {
-      return response.data;
-    }
-
-    const message =
-      response &&
-      response.error &&
-      response.error.message
-        ? response.error.message
-        : response && typeof response.error === 'string'
-          ? response.error
-          : 'Une erreur est survenue pendant la vérification du paiement.';
-
-    throw new Error(message);
-  }
-
-  async function verifyPaymentAccessBeforeCreation(
-    email,
-    paymentAccessCode
-  ) {
-    const response = await callServer(
-      'apiVerifyPitchAccess',
-      email,
-      paymentAccessCode
-    );
-
-    const verification = unwrapPaymentResponse(response);
-
-    if (!verification || !verification.valid) {
-      throw new Error(
-        verification && verification.message
-          ? verification.message
-          : 'Votre accès au Pitch Deck n’est pas valide.'
-      );
-    }
-
-    return verification;
-  }
-
- function openSelarPaymentPage() {
-  const paymentUrl = 'https://selar.com/l1k743881t';
-
-  const link = document.createElement('a');
-
-  link.href = paymentUrl;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-}
-
 function bindLandingEvents() {
-  document
-    .querySelectorAll('[data-selar-payment]')
-    .forEach(button => {
-      button.addEventListener('click', event => {
-        event.preventDefault();
-        event.stopPropagation();
-        openSelarPaymentPage();
-      });
-    });
-
   document
     .querySelectorAll('[data-scroll-access]')
     .forEach(button => {
@@ -1352,12 +1247,12 @@ function bindLandingEvents() {
 
         const originalText = button
           ? button.textContent
-          : 'Vérifier mon accès et commencer';
+          : 'Créer mon projet';
 
         if (button) {
           button.disabled = true;
           button.textContent =
-            'Vérification du paiement…';
+            'Création de votre espace…';
         }
 
         try {
@@ -1373,12 +1268,6 @@ function bindLandingEvents() {
             .trim()
             .toLowerCase();
 
-          const paymentAccessCode = String(
-            form.get('paymentAccessCode') || ''
-          )
-            .trim()
-            .toUpperCase();
-
           const consent = Boolean(
             form.get('consent')
           );
@@ -1392,13 +1281,7 @@ function bindLandingEvents() {
 
           if (!email) {
             throw new Error(
-              'Veuillez saisir l’e-mail utilisé pour le paiement.'
-            );
-          }
-
-          if (!paymentAccessCode) {
-            throw new Error(
-              'Veuillez saisir votre code d’accès.'
+              'Veuillez saisir votre adresse e-mail.'
             );
           }
 
@@ -1407,12 +1290,6 @@ function bindLandingEvents() {
               'Vous devez accepter la déclaration avant de continuer.'
             );
           }
-
-
-          await verifyPaymentAccessBeforeCreation(
-            email,
-            paymentAccessCode
-          );
 
 
           if (button) {
@@ -1427,7 +1304,6 @@ function bindLandingEvents() {
               {
                 projectName: projectName,
                 email: email,
-                paymentAccessCode: paymentAccessCode,
                 consent: consent
               }
             )
@@ -1447,7 +1323,7 @@ function bindLandingEvents() {
 
 
           renderJourney();
-
+          refreshProjectAssets();
 
           showToast(
             'Espace créé',
@@ -1457,7 +1333,7 @@ function bindLandingEvents() {
 
         } catch (error) {
           showToast(
-            'Accès impossible',
+            'Création impossible',
             error && error.message
               ? error.message
               : 'Une erreur est survenue.',
@@ -1516,6 +1392,7 @@ function bindLandingEvents() {
           );
 
           renderJourney();
+          refreshProjectAssets();
 
         } catch (error) {
           showToast(
@@ -1559,6 +1436,7 @@ function bindLandingEvents() {
             <nav class="step-list">
               ${state.schema.map((item, index) => renderStep(item, index, progress)).join('')}
             </nav>
+            ${renderAssetPanel()}
           </aside>
           <main class="workspace">
             <div class="workspace-inner">
@@ -1582,6 +1460,303 @@ function bindLandingEvents() {
         </div>
       </div>`;
     bindJourneyEvents();
+    bindAssetEvents();
+  }
+
+
+  // Files are references to Drive assets, never embedded in questionnaire data.
+  function renderAssetPanel() {
+    const options = [
+      ['SOURCE_DOCUMENT', 'Document PDF / Word'],
+      ['LOGO', 'Logo du projet'],
+      ['COVER_HERO', 'Photo de couverture'],
+      ['PRODUCT', 'Photo de produit / solution'],
+      ['FOUNDER', 'Portrait fondateur']
+    ];
+    return '<section class="ag24-asset-panel" id="ag24-asset-panel">' +
+      '<h3>Documents et images</h3>' +
+      '<p>Vos fichiers sont conservés avec votre projet et retrouvés lors de la reprise.</p>' +
+      '<label for="ag24-asset-role">Utilisation du fichier</label>' +
+      '<select id="ag24-asset-role">' + options.map(function(option) {
+        return '<option value="' + option[0] + '">' + escapeHtml(option[1]) + '</option>';
+      }).join('') + '</select>' +
+      '<label for="ag24-asset-file">Choisir un fichier</label>' +
+      '<input id="ag24-asset-file" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg">' +
+      '<small>Images PNG/JPEG : 2 Mo max. PDF/Word : 8 Mo max. Les documents sont conservés sur Drive. Leur analyse par OpenAI est lancée uniquement sur votre demande.</small>' +
+      '<button class="btn btn-secondary" type="button" data-action="upload-project-asset">Ajouter au dossier</button>' +
+      '<div class="ag24-assets-list">' +
+      (state.assets.length ? state.assets.map(function(asset) {
+        const id = escapeHtml(asset.assetId);
+        return '<div class="ag24-asset-item" data-asset-id="' + id + '">' +
+          '<strong>' + escapeHtml(asset.name) + '</strong>' +
+          '<span>' + escapeHtml(asset.role) + ' · ' +
+            Math.ceil(Number(asset.bytes || 0) / 1024) + ' Ko</span>' +
+          '<div class="ag24-asset-actions">' +
+          (asset.kind === 'IMAGE'
+            ? '<button type="button" data-action="preview-asset">Aperçu</button>'
+            : '<button type="button" data-action="analyze-asset">' +
+                (findLatestImport_(asset.assetId) && findLatestImport_(asset.assetId).status === 'READY'
+                  ? 'Vérifier les propositions' :
+                 findLatestImport_(asset.assetId) && findLatestImport_(asset.assetId).status === 'APPLIED'
+                  ? 'Voir l’analyse appliquée' :
+                 findLatestImport_(asset.assetId) && findLatestImport_(asset.assetId).status === 'RUNNING'
+                  ? 'Actualiser l’analyse' :
+                  'Analyser avec OpenAI') +
+              '</button>') +
+          '<button type="button" data-action="delete-asset">Retirer</button>' +
+          '</div>' +
+          '<div class="ag24-asset-preview"></div>' +
+          '</div>';
+      }).join('') : '<p class="ag24-asset-empty">Aucun fichier joint.</p>') +
+      '</div></section>';
+  }
+
+  function findLatestImport_(assetId) {
+    return state.imports.find(function(entry) { return entry.assetId === assetId; }) || null;
+  }
+
+  async function refreshProjectAssets() {
+    if (!state.project || !state.token) return;
+    const requestedProject = state.project.projectId;
+    try {
+      const results = await Promise.all([
+        callServer('apiListProjectAssets', requestedProject, state.token),
+        callServer('apiListDocumentAnalyses', requestedProject, state.token)
+      ]);
+      const result = unwrap(results[0]);
+      const analyses = unwrap(results[1]);
+      if (!state.project || state.project.projectId !== requestedProject) return;
+      state.assets = result.assets || [];
+      state.imports = (analyses.imports || []).slice().reverse();
+      const panel = document.getElementById('ag24-asset-panel');
+      if (panel) {
+        panel.outerHTML = renderAssetPanel();
+        bindAssetEvents();
+      }
+    } catch (error) {
+      showToast('Documents non chargés',
+        error && error.message ? error.message : 'Impossible de charger les pièces jointes.', 6500);
+    }
+  }
+
+  function readProjectAsset_(file) {
+    return new Promise(function(resolve, reject) {
+      const reader = new FileReader();
+      reader.onerror = function() { reject(new Error('Lecture du fichier impossible.')); };
+      reader.onload = function() {
+        const encoded = String(reader.result || '').split(',')[1] || '';
+        if (!encoded) return reject(new Error('Fichier vide.'));
+        resolve(encoded);
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function bindAssetEvents() {
+    const panel = document.getElementById('ag24-asset-panel');
+    if (!panel) return;
+    const upload = panel.querySelector('[data-action="upload-project-asset"]');
+    if (upload) upload.addEventListener('click', async function() {
+      if (state.assetBusy) return;
+      const file = panel.querySelector('#ag24-asset-file').files[0];
+      const role = panel.querySelector('#ag24-asset-role').value;
+      if (!file) return showToast('Fichier manquant', 'Sélectionnez un fichier.', 4000);
+      const image = role !== 'SOURCE_DOCUMENT';
+      const maxBytes = (image ? 2 : 8) * 1024 * 1024;
+      if (!file.size || file.size > maxBytes) {
+        return showToast('Fichier trop volumineux',
+          'Limite : ' + (image ? '2 Mo pour une image.' : '8 Mo pour un document.'), 5000);
+      }
+      state.assetBusy = true;
+      upload.disabled = true;
+      upload.textContent = 'Enregistrement…';
+      try {
+        const base64 = await readProjectAsset_(file);
+        const result = unwrap(await callServer('apiUploadProjectAsset', {
+          projectId: state.project.projectId, token: state.token,
+          role: role, fileName: file.name,
+          mimeType: file.type, size: file.size, base64: base64
+        }));
+        if (!result.deduplicated && state.project) {
+          state.project.slidesUrl = '';
+          state.project.pdfUrl = '';
+        }
+        await refreshProjectAssets();
+        showToast(result.deduplicated ? 'Fichier déjà enregistré' : 'Fichier enregistré',
+          'Il est lié au projet et sera disponible après reprise.', 4500);
+      } catch (error) {
+        showToast('Upload refusé', error && error.message ? error.message : 'Upload impossible.', 6500);
+      } finally {
+        state.assetBusy = false;
+        upload.disabled = false;
+        upload.textContent = 'Ajouter au dossier';
+      }
+    });
+
+
+    panel.querySelectorAll('[data-action="analyze-asset"]').forEach(function(button) {
+      button.addEventListener('click', async function() {
+        const item = button.closest('[data-asset-id]');
+        if (!item || state.importBusy) return;
+        const assetId = item.dataset.assetId;
+        const latest = findLatestImport_(assetId);
+        if (latest && (latest.status === 'READY' || latest.status === 'APPLIED')) {
+          return openPitchDocumentReview_(latest.importId);
+        }
+        if (latest && latest.status === 'RUNNING') {
+          await refreshProjectAssets();
+          return showToast('Analyse en cours', 'Actualisez après la réponse du serveur.', 4500);
+        }
+        if (!window.confirm(
+          'Autoriser l’analyse de ce document par OpenAI ? Le fichier sera transmis au service OpenAI pour proposer des réponses. Aucun champ ne sera modifié sans votre validation.'
+        )) return;
+        state.importBusy = true;
+        button.disabled = true;
+        button.textContent = 'Analyse OpenAI…';
+        try {
+          const health = unwrap(await callServer('apiPitchOpenAIHealth',
+            state.project.projectId, state.token));
+          if (!health.configured) {
+            throw new Error('OpenAI non configuré côté serveur. Contactez AfriGreen24.');
+          }
+          const result = unwrap(await callServer('apiAnalyzeProjectDocument',{
+            projectId:state.project.projectId,token:state.token,assetId:assetId,
+            consent:true
+          }));
+          await refreshProjectAssets();
+          if (result.import && (result.import.status === 'READY' ||
+              result.import.status === 'APPLIED')) {
+            await openPitchDocumentReview_(result.import.importId);
+          } else {
+            showToast('Analyse enregistrée', 'Le statut est récupérable après une reprise.', 6000);
+          }
+        } catch (error) {
+          showToast('Analyse interrompue',
+            error && error.message ? error.message : 'Erreur OpenAI.', 7000);
+          await refreshProjectAssets();
+        } finally {
+          state.importBusy = false;
+          button.disabled = false;
+        }
+      });
+    });
+
+    panel.querySelectorAll('[data-action="preview-asset"]').forEach(function(button) {
+      button.addEventListener('click', async function() {
+        const item = button.closest('[data-asset-id]');
+        if (!item) return;
+        button.disabled = true;
+        try {
+          const result = unwrap(await callServer('apiGetProjectImageData',
+            state.project.projectId, state.token, item.dataset.assetId));
+          const container = item.querySelector('.ag24-asset-preview');
+          const img = document.createElement('img');
+          img.alt = 'Aperçu du visuel';
+          img.src = result.dataUrl;
+          container.textContent = '';
+          container.appendChild(img);
+        } catch (error) {
+          showToast('Aperçu indisponible', error.message, 5000);
+        } finally { button.disabled = false; }
+      });
+    });
+
+    panel.querySelectorAll('[data-action="delete-asset"]').forEach(function(button) {
+      button.addEventListener('click', async function() {
+        const item = button.closest('[data-asset-id]');
+        if (!item || !window.confirm('Retirer ce fichier du projet ?')) return;
+        button.disabled = true;
+        try {
+          unwrap(await callServer('apiDeleteProjectAsset', {
+            projectId: state.project.projectId, token: state.token,
+            assetId: item.dataset.assetId
+          }));
+          if (state.project) {
+            state.project.slidesUrl = '';
+            state.project.pdfUrl = '';
+          }
+          await refreshProjectAssets();
+          showToast('Fichier retiré', 'Le registre du projet a été mis à jour.', 4500);
+        } catch (error) {
+          showToast('Suppression impossible', error.message, 6000);
+          button.disabled = false;
+        }
+      });
+    });
+  }
+
+
+  async function openPitchDocumentReview_(importId) {
+    const result = unwrap(await callServer('apiGetDocumentAnalysis',
+      state.project.projectId,state.token,importId));
+    const currentProjectId = state.project.projectId;
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-backdrop';
+    overlay.id = 'ag24-import-review';
+    const fields = result.fields || [];
+    const suggestions = fields.map(function(field) {
+      const current = getByPath(state.project.data || {}, field.path);
+      const filled = current !== null && current !== undefined &&
+        String(current).trim() !== '';
+      return '<label class="ag24-import-row">' +
+        '<input type="checkbox" data-import-path="' + escapeHtml(field.path) + '"' +
+          (filled ? ' disabled' : ' checked') + '>' +
+        '<span><strong>' + escapeHtml(field.path) + '</strong>' +
+        '<small>' + escapeHtml(field.evidence) + ' · Confiance ' +
+          Math.round(Number(field.confidence||0)*100) + '%</small>' +
+        '<em>' + escapeHtml(field.value) + '</em>' +
+        (filled ? '<small>Réponse existante préservée : ' +
+          escapeHtml(String(current).slice(0,180)) + '</small>' : '') +
+        '</span></label>';
+    }).join('');
+    overlay.innerHTML =
+      '<section class="ag24-import-modal" role="dialog" aria-modal="true">' +
+      '<h2>Propositions OpenAI à vérifier</h2>' +
+      '<p>Les preuves citées par l’IA doivent être confrontées au document. Aucune proposition n’est appliquée automatiquement.</p>' +
+      '<p>' + fields.length + ' proposition(s) extraites · Import ' + escapeHtml(importId) + '</p>' +
+      '<div class="ag24-import-list">' +
+        (suggestions || '<p>Aucune proposition fiable détectée.</p>') +
+      '</div><div class="ag24-import-footer">' +
+      '<button class="btn btn-secondary" type="button" data-import-cancel>Fermer</button>' +
+      (result.import.status === 'APPLIED' ? '' :
+        '<button class="btn btn-primary" type="button" data-import-apply>Valider les champs cochés</button>') +
+      '</div></section>';
+    document.body.appendChild(overlay);
+    overlay.querySelector('[data-import-cancel]').addEventListener('click',function() {
+      overlay.remove();
+    });
+    const apply = overlay.querySelector('[data-import-apply]');
+    if (!apply) return;
+    apply.addEventListener('click',async function() {
+      const paths = Array.from(overlay.querySelectorAll(
+        '[data-import-path]:checked:not(:disabled)')).map(function(el) {
+        return el.dataset.importPath;
+      });
+      if (!paths.length) {
+        return showToast('Aucun champ choisi', 'Sélectionnez au moins une proposition.', 4000);
+      }
+      apply.disabled = true;
+      apply.textContent = 'Validation…';
+      try {
+        const response = unwrap(await callServer('apiApplyDocumentAnalysis',{
+          projectId:currentProjectId,token:state.token,importId:importId,paths:paths
+        }));
+        if (!state.project || state.project.projectId !== currentProjectId) {
+          overlay.remove();return;
+        }
+        state.project = response.project;
+        overlay.remove();
+        renderJourney();
+        refreshProjectAssets();
+        showToast('Import validé',response.applied.length +
+          ' champ(s) renseigné(s), ' + response.skipped.length +
+          ' conservé(s) sans écrasement.',6500);
+      } catch(error) {
+        showToast('Validation échouée',error.message,7000);
+        apply.disabled = false;
+        apply.textContent = 'Valider les champs cochés';
+      }
+    });
   }
 
   function renderStep(section, index, progress) {
@@ -1698,7 +1873,7 @@ function bindLandingEvents() {
     if (copy) copy.addEventListener('click', async () => {
       const resumeUrl = state.resumeUrl || buildResumeUrl();
       if (!resumeUrl) {
-        showToast('Lien indisponible', 'Redéployez l’application Web puis relancez la fonction setupAfriGreen24PitchDeck().', 6500);
+        showToast('Lien indisponible', 'Redéployez l’application Web puis relancez la fonction setupAfriGreen24PitchDeck_().', 6500);
         return;
       }
       state.resumeUrl = resumeUrl;
@@ -1749,41 +1924,57 @@ function bindLandingEvents() {
       indicator.textContent = 'Modifications en attente…';
       indicator.className = 'save-state';
     }
-    state.saveTimer = window.setTimeout(() => saveCurrentSection(false), 900);
+    state.saveTimer = window.setTimeout(() => {
+      saveCurrentSection(false).catch(function(error) {
+        showToast('Sauvegarde non effectuée', error.message, 6000);
+      });
+    }, 900);
   }
 
   async function saveCurrentSection(showEncouragement) {
-    if (!state.project || state.saving) return;
-    const section = state.schema[state.activeSection];
-    const values = collectCurrentSection();
-    state.saving = true;
-    const indicator = document.getElementById('save-state');
-    if (indicator) {
-      indicator.textContent = 'Enregistrement…';
-      indicator.className = 'save-state';
-    }
-    try {
-      const result = unwrap(await callServer('apiSaveSection', {
-        projectId: state.project.projectId,
-        token: state.token,
-        sectionId: section.id,
-        values
-      }));
-      state.project = result.project;
+    if (!state.project) return;
+    // Every call joins the serialization chain, including navigation calls.
+    const previous = state.savePromise || Promise.resolve();
+    const operation = previous.then(async function() {
+      const section = state.schema[state.activeSection];
+      const values = collectCurrentSection();
+      const indicator = document.getElementById('save-state');
+      state.saving = true;
       if (indicator) {
-        indicator.textContent = 'Toutes vos réponses sont enregistrées.';
-        indicator.className = 'save-state saved';
+        indicator.textContent = 'Enregistrement…';
+        indicator.className = 'save-state';
       }
-      if (showEncouragement) showToast('Étape enregistrée', result.encouragement, 3500);
-    } catch (error) {
-      if (indicator) {
-        indicator.textContent = 'Échec de l’enregistrement.';
-        indicator.className = 'save-state error';
+      try {
+        const result = unwrap(await callServer('apiSaveSection', {
+          projectId: state.project.projectId,
+          token: state.token,
+          sectionId: section.id,
+          values: values
+        }));
+        // Preserve local typing which occurred while the RPC was in flight.
+        const latest = collectCurrentSection();
+        state.project = result.project;
+        if (state.schema[state.activeSection].id === section.id) {
+          Object.assign(state.project.data[section.id], latest);
+        }
+        if (indicator) {
+          indicator.textContent = 'Toutes vos réponses sont enregistrées.';
+          indicator.className = 'save-state saved';
+        }
+        if (showEncouragement) showToast('Étape enregistrée', result.encouragement, 3500);
+      } catch (error) {
+        if (indicator) {
+          indicator.textContent = 'Échec de l’enregistrement.';
+          indicator.className = 'save-state error';
+        }
+        throw error;
+      } finally {
+        state.saving = false;
       }
-      throw error;
-    } finally {
-      state.saving = false;
-    }
+    });
+    state.savePromise = operation;
+    try { return await operation; }
+    finally { if (state.savePromise === operation) state.savePromise = null; }
   }
 
   function validateCurrentSection() {

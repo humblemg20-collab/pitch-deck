@@ -1,4 +1,4 @@
-function buildStandardDeckContent(project) {
+function buildStandardDeckContent_(project) {
   const data = project.data || {};
   const identity = data.identity || {};
   const problem = data.problem || {};

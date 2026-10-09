@@ -464,4 +464,35 @@
     border-radius: 12px;
   }
 }
+
+  /* Private project asset sidebar */
+  .ag24-asset-panel { margin-top:24px; padding:17px; border:1px solid var(--line); border-radius:18px; background:rgba(255,255,255,.035); display:grid; gap:11px; }
+  .ag24-asset-panel h3 { margin:0; color:var(--white); font-size:16px; }
+  .ag24-asset-panel p, .ag24-asset-panel small { color:var(--muted); font-size:12px; line-height:1.55; margin:0; }
+  .ag24-asset-panel label { color:var(--white); font-weight:750; font-size:12px; }
+  .ag24-asset-panel select, .ag24-asset-panel input[type=file] { max-width:100%; min-width:0; width:100%; padding:10px; border:1px solid var(--line); border-radius:9px; background:var(--navy-2); color:var(--white); }
+  .ag24-asset-panel .btn { min-height:38px; font-size:12px; }
+  .ag24-assets-list { display:grid; gap:9px; }
+  .ag24-asset-item { padding:11px; border-radius:11px; border:1px solid var(--line); overflow-wrap:anywhere; }
+  .ag24-asset-item strong { display:block; font-size:12px; color:var(--white); }
+  .ag24-asset-item span { color:var(--muted); font-size:10px; }
+  .ag24-asset-actions { display:flex; gap:10px; margin-top:8px; }
+  .ag24-asset-actions button { background:transparent; border:0; color:var(--emerald); font-size:12px; text-decoration:underline; cursor:pointer; padding:4px 0; }
+  .ag24-asset-preview img { margin-top:9px; width:100%; max-height:160px; object-fit:contain; border-radius:8px; }
+
+
+  .ag24-import-modal{width:min(850px,95vw);max-height:90vh;overflow-y:auto;background:#F7F4EC;
+    color:#18212A;padding:clamp(18px,3vw,32px);border-radius:20px;}
+  .ag24-import-modal h2{margin:0 0 10px;font-size:24px;}
+  .ag24-import-modal>p{line-height:1.5;color:#53636F;}
+  .ag24-import-list{display:grid;gap:10px;margin:15px 0;}
+  .ag24-import-row{display:grid;grid-template-columns:20px minmax(0,1fr);gap:12px;
+    padding:14px;border:1px solid #D8D5CE;border-radius:11px;line-height:1.55;}
+  .ag24-import-row input{width:18px;height:18px;margin-top:5px;accent-color:#138251;}
+  .ag24-import-row strong{display:block;font-size:13px;}
+  .ag24-import-row small{display:block;color:#63707A;font-size:11px;margin:5px 0;overflow-wrap:anywhere;}
+  .ag24-import-row em{display:block;font-style:normal;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;}
+  .ag24-import-row:has(input:disabled){opacity:.65;}
+  .ag24-import-footer{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;}
+
 </style>

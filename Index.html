@@ -8,7 +8,7 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <?!= include('Styles'); ?>
+  <?!= include_('Styles'); ?>
 </head>
 
 <body>
@@ -78,12 +78,13 @@
       }
     );
 
-    window.AG24_INITIAL_STATE = {};
+    // Existing query-style links remain compatible; new links use the URL fragment.
+    window.AG24_INITIAL_STATE = <?!= initialState ?>;
   </script>
 
 
   <!-- App est chargé après le détecteur -->
-  <?!= include('App'); ?>
+  <?!= include_('App'); ?>
 
 
   <script>

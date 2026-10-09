@@ -1,6 +1,6 @@
 /**
  * Configuration centrale AfriGreen24 Pitch Deck Standard.
- * Les identifiants créés par setupAfriGreen24PitchDeck() sont enregistrés
+ * Les identifiants créés par setupAfriGreen24PitchDeck_() sont enregistrés
  * dans les propriétés du script, pas dans le code.
  */
 const AG24_CONFIG = Object.freeze({
@@ -15,6 +15,7 @@ LOGO_FILE_ID: 'https://drive.google.com/file/d/1Y8263hmQecuIZQMsTCZTKd8ReAKuBa3T
   SUPPORT_EMAIL: '',
   PROJECT_PREFIX: 'AG24-PD',
   MAX_PROJECTS_PER_EMAIL_PER_DAY: 3,
+  MAX_TOTAL_PROJECTS_PER_DAY: 250,
   MAX_TEXT_LENGTH: 6000,
   TOKEN_BYTES: 24,
   ACCESS_CODE_LENGTH: 6,

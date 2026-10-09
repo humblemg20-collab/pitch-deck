@@ -93,123 +93,35 @@ function logEvent_(projectId, eventType, details) {
 
 function getOrCreateProjectFolder_(project) {
   const config = requireSetup_();
-  if (project.folderId) {
-    try {
-      return DriveApp.getFolderById(project.folderId);
-    } catch (error) {
-      project.folderId = '';
-    }
-  }
+  // Fail closed: a missing existing folder must never silently create a second truth.
+  if (project.folderId) return DriveApp.getFolderById(project.folderId);
   const root = DriveApp.getFolderById(config.rootFolderId);
   const folderName = project.projectId + ' - ' + slugify_(project.projectName);
-  const folder = root.createFolder(folderName);
+  // Recover an orphan folder from an interrupted row update, without making
+  // a second folder or silently choosing between ambiguous candidates.
+  const candidates = [];
+  const folders = root.getFolders();
+  while (folders.hasNext()) {
+    const folder = folders.next();
+    if (folder.getName().indexOf(project.projectId + ' - ') === 0) {
+      candidates.push(folder);
+      if (candidates.length > 1) {
+        throw new Error('Dossiers projet dupliqués : intervention de récupération requise.');
+      }
+    }
+  }
+  const folder = candidates.length ? candidates[0] : root.createFolder(folderName);
   project.folderId = folder.getId();
   return folder;
 }
-function saveLeadEmail_(leadData) {
-  const email = normalizeLeadEmail_(leadData.email);
-
-  if (!email) {
-    throw new Error('Adresse e-mail du prospect invalide.');
-  }
-
-  const sheet = setupLeadsSheet_();
-  const now = nowIso_();
-
-  const values = sheet.getDataRange().getValues();
-  const headers = values.length ? values[0] : [];
-
-  const emailColumn = headers.indexOf('email');
-  const projectIdColumn = headers.indexOf('projectId');
-
-  let existingRow = -1;
-
-  for (let index = 1; index < values.length; index++) {
-    const rowEmail = normalizeLeadEmail_(
-      emailColumn >= 0 ? values[index][emailColumn] : ''
-    );
-
-    const rowProjectId = cleanString_(
-      projectIdColumn >= 0 ? values[index][projectIdColumn] : '',
-      150
-    );
-
-    if (
-      rowEmail === email &&
-      rowProjectId === cleanString_(leadData.projectId, 150)
-    ) {
-      existingRow = index + 1;
-      break;
-    }
-  }
-
-  if (existingRow > 0) {
-    updateLeadRow_(sheet, existingRow, headers, {
-      email: email,
-      projectId: cleanString_(leadData.projectId, 150),
-      projectName: cleanString_(leadData.projectName, 180),
-      consent: Boolean(leadData.consent),
-      status: cleanString_(leadData.status || 'PROSPECT', 50),
-      source: cleanString_(leadData.source || 'Pitch Studio', 100),
-      lastAction: cleanString_(leadData.lastAction || 'Projet mis à jour', 150),
-      updatedAt: now
-    });
-
-    return {
-      created: false,
-      email: email
-    };
-  }
-
-  const leadId =
-    'AG24-LEAD-' +
-    Utilities.getUuid()
-      .replace(/-/g, '')
-      .slice(0, 12)
-      .toUpperCase();
-
-  sheet.appendRow([
-    leadId,
-    email,
-    cleanString_(leadData.projectId, 150),
-    cleanString_(leadData.projectName, 180),
-    Boolean(leadData.consent),
-    cleanString_(leadData.status || 'PROSPECT', 50),
-    cleanString_(leadData.source || 'Pitch Studio', 100),
-    cleanString_(leadData.lastAction || 'Projet créé', 150),
-    now,
-    now
-  ]);
-
-  return {
-    created: true,
-    leadId: leadId,
-    email: email
-  };
+function getOrCreateGeneratedFolder_(project) {
+  const previousId = project.folderId || '';
+  const root = getOrCreateProjectFolder_(project);
+  if (!previousId && project.folderId) updateProject_(project);
+  const folders = root.getFoldersByName('generated');
+  return folders.hasNext() ? folders.next() : root.createFolder('generated');
 }
 
-function updateLeadRow_(sheet, rowNumber, headers, updates) {
-  Object.keys(updates).forEach(function(key) {
-    const columnIndex = headers.indexOf(key);
-
-    if (columnIndex < 0) return;
-
-    sheet
-      .getRange(rowNumber, columnIndex + 1)
-      .setValue(updates[key]);
-  });
-}
-
-function normalizeLeadEmail_(email) {
-  const normalized = String(email || '')
-    .trim()
-    .toLowerCase();
-
-  const valid =
-    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized);
-
-  return valid ? normalized : '';
-}
 function saveLeadEmail_(leadData) {
   leadData = leadData || {};
 

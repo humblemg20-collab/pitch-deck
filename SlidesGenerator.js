@@ -3,22 +3,19 @@
  * SlidesGenerator.gs — Premium Design V2
  */
 
-function generateStandardPresentation(project) {
-  return generateStandardPresentation_(project);
-}
-
 function generateStandardPresentation_(project) {
   if (!project) {
     throw new Error('Projet introuvable pour la génération du Pitch Deck.');
   }
 
-  if (typeof buildStandardDeckContent !== 'function') {
+  if (typeof buildStandardDeckContent_ !== 'function') {
     throw new Error(
-      'La fonction buildStandardDeckContent(project) est introuvable dans ContentBuilder.gs.'
+      'La fonction buildStandardDeckContent_(project) est introuvable dans ContentBuilder.gs.'
     );
   }
 
-  const slidesContent = buildStandardDeckContent(project);
+  const slidesContent = buildStandardDeckContent_(project);
+  const projectAssets = AG24_ASSET_imagesForGeneration_(project.projectId);
 
   if (!Array.isArray(slidesContent) || !slidesContent.length) {
     throw new Error('Le contenu du Pitch Deck est vide.');
@@ -43,12 +40,14 @@ function generateStandardPresentation_(project) {
     }
 
     slidesContent.forEach(function(slideData, index) {
-      createPremiumSlide_(
+      slideData._hasFounderAsset = !!AG24_SLIDE_selectAsset_(projectAssets, ['FOUNDER', 'TEAM']);
+      const slide = createPremiumSlide_(
         presentation,
         slideData || {},
         index,
         slidesContent.length
       );
+      AG24_SLIDE_placeImage_(slide, slideData, projectAssets);
     });
 
     presentation.saveAndClose();
@@ -57,12 +56,12 @@ function generateStandardPresentation_(project) {
 
     const slidesFile = DriveApp.getFileById(presentationId);
 
-    moveGeneratedFileToOutputFolder_(slidesFile);
-
-    const pdfFile = exportStandardPresentationToPdf_(
-      presentationId,
-      presentationName
+    moveGeneratedFileToOutputFolder_(
+      slidesFile,
+      getOrCreateGeneratedFolder_(project)
     );
+    // A Slides link is not useful unless the paying project's contact can open it.
+    if (isValidEmail_(project.email)) slidesFile.addViewer(project.email);
 
     return {
       presentationId: presentationId,
@@ -71,8 +70,6 @@ function generateStandardPresentation_(project) {
         'https://docs.google.com/presentation/d/' +
         presentationId +
         '/edit',
-      pdfId: pdfFile.getId(),
-      pdfUrl: pdfFile.getUrl(),
       fileName: presentationName,
       slideCount: slidesContent.length,
       generatedAt: new Date().toISOString()
@@ -161,6 +158,7 @@ function createPremiumSlide_(
     data.number || index + 1,
     totalSlides
   );
+  return slide;
 }
 
 /**
@@ -794,6 +792,19 @@ function createTeamSlide_(slide, data) {
     }
   );
 
+  if (data._hasFounderAsset) {
+    addPanel_(slide, 526, 205, 374, 158, theme.panelAlt);
+    addTextBox_(slide, 'COMPÉTENCES CLÉS', 685, 218, 190, 18,
+      { fontSize: 9, bold: true, color: theme.green });
+    addTextBox_(slide, ag24Text_(data.skills, 'À préciser'), 685, 241, 192, 48,
+      { fontSize: 11, color: theme.white });
+    addTextBox_(slide, 'À RENFORCER', 685, 299, 192, 16,
+      { fontSize: 9, bold: true, color: theme.yellow });
+    addTextBox_(slide, ag24Text_(data.gaps, 'À préciser'), 685, 322, 192, 26,
+      { fontSize: 10, color: theme.white });
+    return;
+  }
+
   addPanel_(slide, 526, 205, 374, 72, theme.panelAlt);
 
   addTextBox_(
@@ -1379,77 +1390,9 @@ function removeShapeBorder_(shape) {
   }
 }
 
-function exportStandardPresentationToPdf_(
-  presentationId,
-  presentationName
-) {
-  Utilities.sleep(1600);
-
-  const sourceFile = DriveApp.getFileById(
-    presentationId
-  );
-
-  const pdfBlob = sourceFile
-    .getAs(MimeType.PDF)
-    .setName(
-      presentationName + '.pdf'
-    );
-
-  const folder = getAg24OutputFolder_();
-
-  if (folder) {
-    return folder.createFile(pdfBlob);
-  }
-
-  return DriveApp.createFile(pdfBlob);
-}
-
-function moveGeneratedFileToOutputFolder_(file) {
-  const folder = getAg24OutputFolder_();
-
-  if (!folder || !file) return;
-
-  try {
-    folder.addFile(file);
-
-    const parents = file.getParents();
-
-    while (parents.hasNext()) {
-      const parent = parents.next();
-
-      if (parent.getId() !== folder.getId()) {
-        try {
-          parent.removeFile(file);
-        } catch (error) {
-          // Ignore.
-        }
-      }
-    }
-  } catch (error) {
-    // La génération continue.
-  }
-}
-
-function getAg24OutputFolder_() {
-  const config =
-    typeof AG24_CONFIG !== 'undefined'
-      ? AG24_CONFIG
-      : {};
-
-  const folderId =
-    config.OUTPUT_FOLDER_ID ||
-    config.PITCH_DECK_FOLDER_ID ||
-    config.GENERATED_FOLDER_ID ||
-    config.ROOT_FOLDER_ID ||
-    '';
-
-  if (!folderId) return null;
-
-  try {
-    return DriveApp.getFolderById(folderId);
-  } catch (error) {
-    return null;
-  }
+function moveGeneratedFileToOutputFolder_(file, folder) {
+  if (!folder || !file) throw new Error('Dossier généré manquant.');
+  file.moveTo(folder);
 }
 
 function getAg24ProjectName_(project) {
@@ -1518,7 +1461,7 @@ function getAg24ErrorMessage_(error) {
   return String(error);
 }
 
-function authorizeSlidesCreation() {
+function authorizeSlidesCreation_() {
   const presentation = SlidesApp.create(
     'TEST AUTORISATION AFRIGREEN24'
   );

@@ -13,11 +13,6 @@ function apiCreateProject(input) {
     const payload = sanitizeObject_(input || {});
     const email = cleanEmail_(payload.email);
     const projectName = cleanString_(payload.projectName, 180);
-    const paymentAccessCode = cleanString_(
-      payload.paymentAccessCode,
-      40
-    ).toUpperCase();
-
     if (!isValidEmail_(email)) {
       throw new Error('Veuillez saisir une adresse e-mail valide.');
     }
@@ -32,20 +27,7 @@ function apiCreateProject(input) {
       );
     }
 
-    if (!paymentAccessCode) {
-      throw new Error('Veuillez saisir votre code d’accès au Pitch Deck.');
-    }
-
     return withScriptLock_(function() {
-      const paymentAccess = verifyPitchAccess_(
-        email,
-        paymentAccessCode
-      );
-
-      if (!paymentAccess.valid) {
-        throw new Error(paymentAccess.message);
-      }
-
       enforceCreationLimit_(email);
 
       const token = randomToken_();
@@ -62,7 +44,7 @@ function apiCreateProject(input) {
         email: email,
         projectName: projectName,
         tokenHash: hashValue_(token),
-        codeHash: hashValue_(accessCode),
+        codeHash: hashValue_(projectId + '|' + accessCode),
         data: data,
         progress: calculateProgress_(data),
         score: null,
@@ -75,29 +57,23 @@ function apiCreateProject(input) {
         pdfUrl: ''
       });
 
-      consumePitchAccessForProject_(
-        email,
-        paymentAccessCode,
-        projectId
-      );
-
       if (typeof saveLeadEmail_ === 'function') {
-        saveLeadEmail_({
+        try { saveLeadEmail_({
           email: email,
           projectId: projectId,
           projectName: projectName,
           consent: true,
           status: 'QUESTIONNAIRE_EN_COURS',
           source: 'AfriGreen24 Pitch Studio',
-          lastAction: 'Accès payé et projet créé'
-        });
+          lastAction: 'Projet Pitch Studio créé gratuitement'
+        }); } catch (crmError) {
+          console.error('LEAD_SYNC_NONBLOCKING', crmError);
+          logEvent_(projectId, 'LEAD_SYNC_FAILED', {});
+        }
       }
 
       const resumeUrl = createResumeUrl_(projectId, token);
-      logEvent_(projectId, 'PROJECT_CREATED', {
-        email: email,
-        paymentId: paymentAccess.paymentId || ''
-      });
+      logEvent_(projectId, 'PROJECT_CREATED', { creationMode: 'FREE' });
       sendProjectCreatedEmail_(project, accessCode, resumeUrl);
 
       return {
@@ -126,6 +102,9 @@ function apiResumeProject(input) {
       const project = findProject_(cleanString_(payload.projectId, 100));
       if (!project) throw new Error('Projet introuvable.');
       assertResumeCredentials_(project, payload.email, payload.accessCode);
+      // Upgrade pre-existing six-digit legacy hashes after a successful resume.
+      project.codeHash = hashValue_(project.projectId + '|' +
+        cleanString_(payload.accessCode, 20));
       const token = randomToken_();
       project.tokenHash = hashValue_(token);
       updateProject_(project);
@@ -153,7 +132,16 @@ function apiSaveSection(input) {
       const project = findProject_(projectId);
       if (!project) throw new Error('Projet introuvable.');
       assertProjectToken_(project, token);
-      project.data[sectionId] = sanitizeObject_(payload.values || {});
+      const nextSection = sanitizeObject_(payload.values || {});
+      const changed = JSON.stringify(project.data[sectionId] || {}) !==
+        JSON.stringify(nextSection);
+      project.data[sectionId] = nextSection;
+      // A changed answer invalidates the old deck, but never deletes its archived files.
+      if (changed && (project.slidesUrl || project.pdfUrl)) {
+        project.slidesUrl = '';
+        project.pdfUrl = '';
+        logEvent_(projectId, 'DECK_INVALIDATED_BY_EDIT', { sectionId: sectionId });
+      }
       if (sectionId === 'identity' && project.data.identity.projectName) {
         project.projectName = cleanString_(project.data.identity.projectName, 180);
       }
@@ -202,13 +190,29 @@ function apiGenerateStandardDeck(projectId, token) {
       if (!declaration) throw new Error('Confirmez la déclaration de sincérité avant de générer le deck.');
       if (!cleanString_(project.projectName)) throw new Error('Le nom du projet est obligatoire.');
 
-      const content = buildStandardDeckContent_(project);
-      const presentation = generateStandardPresentation_(project, content);
-      const pdf = exportPresentationToPdf_(project, presentation);
-      project.slidesUrl = presentation.slidesUrl;
-      project.pdfUrl = pdf.pdfUrl;
-      project.status = AG24_CONFIG.STATUS.GENERATED;
-      project = updateProject_(project);
+      let presentation = null;
+      let pdf = null;
+      try {
+        // A single generator creates Slides; exactly one exporter creates the PDF.
+        presentation = generateStandardPresentation_(project);
+        pdf = exportPresentationToPdf_(project, presentation);
+        project.slidesUrl = presentation.slidesUrl;
+        project.pdfUrl = pdf.pdfUrl;
+        project.status = AG24_CONFIG.STATUS.GENERATED;
+        project = updateProject_(project);
+      } catch (error) {
+        // Keep previously published URLs unchanged when a new run fails.
+        [pdf && pdf.pdfId, presentation && presentation.presentationId]
+          .filter(Boolean)
+          .forEach(function(fileId) {
+            try { DriveApp.getFileById(fileId).setTrashed(true); }
+            catch (cleanupError) { console.error('GENERATION_ROLLBACK_FAILED', cleanupError); }
+          });
+        logEvent_(project.projectId, 'DECK_GENERATION_FAILED', {
+          error: String(error && error.message || error).slice(0, 300)
+        });
+        throw error;
+      }
       logEvent_(project.projectId, 'DECK_GENERATED', {
         score: project.score.total,
         slidesUrl: project.slidesUrl,

@@ -1,5 +1,5 @@
 function exportPresentationToPdf_(project, presentationResult) {
-  const folder = getOrCreateProjectFolder_(project);
+  const folder = getOrCreateGeneratedFolder_(project);
   const sourceFile = DriveApp.getFileById(presentationResult.presentationId);
   const pdfName = presentationResult.fileName + '.pdf';
   const pdfBlob = sourceFile.getAs(MimeType.PDF).setName(pdfName);
@@ -7,7 +7,10 @@ function exportPresentationToPdf_(project, presentationResult) {
   try {
     if (isValidEmail_(project.email)) pdfFile.addViewer(project.email);
   } catch (error) {
-    console.warn('Partage PDF impossible : ' + error.message);
+    try { pdfFile.setTrashed(true); } catch (cleanupError) {
+      console.error('PDF_SHARE_ROLLBACK_FAILED', cleanupError);
+    }
+    throw new Error('Impossible de donner accès au PDF au contact du projet.');
   }
   return {
     pdfId: pdfFile.getId(),

@@ -2,7 +2,7 @@
  * À exécuter une seule fois depuis l'éditeur Apps Script.
  * Crée la base Sheets et le dossier Drive racine.
  */
-function setupAfriGreen24PitchDeck() {
+function setupAfriGreen24PitchDeck_() {
   return withScriptLock_(function() {
     const props = PropertiesService.getScriptProperties();
     const current = props.getProperties();
@@ -18,6 +18,8 @@ function setupAfriGreen24PitchDeck() {
     ensureSheet_(spreadsheet, AG24_CONFIG.SHEETS.PROJECTS, AG24_CONFIG.PROJECT_HEADERS);
     ensureSheet_(spreadsheet, AG24_CONFIG.SHEETS.EVENTS, AG24_CONFIG.EVENT_HEADERS);
     ensureSheet_(spreadsheet, AG24_CONFIG.SHEETS.SETTINGS, ['key', 'value', 'updatedAt']);
+    ensureSheet_(spreadsheet, AG24_ASSETS_V1.SHEET, AG24_ASSETS_V1.HEADERS);
+    ensureSheet_(spreadsheet, AG24_PITCH_IMPORT.SHEET, AG24_PITCH_IMPORT.HEADERS);
 
     let rootFolder;
     if (current.AG24_ROOT_FOLDER_ID) {
@@ -53,7 +55,9 @@ function ensureSheet_(spreadsheet, name, headers) {
   const firstRow = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
   const shouldWrite = headers.some(function(header, index) { return firstRow[index] !== header; });
   if (shouldWrite) {
-    sheet.clear();
+    if (sheet.getLastRow() > 0) {
+      throw new Error('Schéma incompatible pour ' + name + '. Migration explicite requise.');
+    }
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     sheet.setFrozenRows(1);
     sheet.autoResizeColumns(1, headers.length);
@@ -71,13 +75,13 @@ function writeSetting_(key, value) {
   else sheet.appendRow(row);
 }
 
-function setAfriGreen24SupportEmail(email) {
+function setAfriGreen24SupportEmail_(email) {
   if (email && !isValidEmail_(email)) throw new Error('Adresse e-mail invalide.');
   PropertiesService.getScriptProperties().setProperty('AG24_SUPPORT_EMAIL', cleanEmail_(email));
   return { success: true, supportEmail: cleanEmail_(email) };
 }
 
-function getInstallationStatus() {
+function getInstallationStatus_() {
   const config = getPrivateConfig_();
   return {
     installed: Boolean(config.databaseSpreadsheetId && config.rootFolderId),
@@ -116,7 +120,9 @@ function setupLeadsSheet_() {
   }
 
   return sheet;
-}function getAg24LeadsSpreadsheet_() {
+}
+
+function getAg24LeadsSpreadsheet_() {
   const spreadsheetId =
     AG24_CONFIG.SPREADSHEET_ID ||
     AG24_CONFIG.DATABASE_SPREADSHEET_ID ||
@@ -131,7 +137,7 @@ function setupLeadsSheet_() {
 
   return SpreadsheetApp.openById(spreadsheetId);
 }
-function installLeadsSheet() {
+function installLeadsSheet_() {
   const sheet = setupLeadsSheet_();
 
   return {
