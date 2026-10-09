@@ -27,7 +27,7 @@ Le brouillon `STANDARD` gratuit reste toujours accessible (même si l'export fin
 - Chiffres de traction étayés si revendiqués.
 - Montant demandé strictement positif, type de financement et ventilation (au moins deux postes chiffrés totalisant le montant ou 100 %).
 - Plusieurs jalons mesurables/datables, contact professionnel et déclaration de sincérité.
-- Relecture finale explicite des textes, chiffres, références et visuels. Toute nouvelle réponse ou nouvelle approbation de visuel invalide la précédente attestation.
+- Relecture finale explicite des textes, chiffres, références et visuels. Toute nouvelle réponse ou nouvelle approbation de visuel invalide la précédente attestation. Un hash SHA-256 des sections canoniques et des médias approuvés lie l'attestation à un dossier précis, y compris en cas de mise à jour via import documentaire.
 
 ## Nettoyage du mode soumis
 

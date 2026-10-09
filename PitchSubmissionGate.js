@@ -48,6 +48,24 @@ function AG24_SUBMISSION_budget_(text,total) {
   }
   return {valid:true,count:parts.length,unit:usesPercent?'PERCENT':'AMOUNT'};
 }
+/** Bind human sign-off to the exact canonical dossier, including imported edits. */
+function AG24_SUBMISSION_signature_(data) {
+  const snapshot={};
+  ['identity','problem','solution','market','businessModel','traction',
+    'team','funding','review','presentationMedia'].forEach(function(section){
+    const value=JSON.parse(JSON.stringify(data && data[section]||{}));
+    if(section==='review') {
+      delete value.investorSubmissionApproved;
+      delete value.investorSubmissionHash;
+    }
+    snapshot[section]=value;
+  });
+  const digest=Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,
+    JSON.stringify(snapshot));
+  return digest.map(function(byte){
+    return ('0'+((byte+256)%256).toString(16)).slice(-2);
+  }).join('');
+}
 function AG24_SUBMISSION_gate_(project) {
   const data=project && project.data||{},issues=[],seen={};
   function add(code,section,message) {
@@ -130,6 +148,8 @@ function AG24_SUBMISSION_gate_(project) {
   }
   if(v('review','investorSubmissionApproved')!=='true'){
     add('HUMAN_FINAL_REVIEW_MISSING','review','Après relecture du PDF, confirmer les chiffres, textes, sources et visuels.');
+  } else if(v('review','investorSubmissionHash')!==AG24_SUBMISSION_signature_(data)){
+    add('SUBMISSION_SOURCE_CHANGED','review','Le dossier a changé depuis la dernière relecture : vérifiez et approuvez la version actuelle.');
   }
   const ready=issues.length===0;
   return {version:AG24_SUBMISSION.VERSION,

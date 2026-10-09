@@ -167,6 +167,14 @@ function apiSaveSection(input) {
       project.alerts = runPitchRules_(project.data);
       project.score = calculatePitchReadinessScore_(project.data, project.alerts);
       project.status = project.progress.percent === 100 ? AG24_CONFIG.STATUS.READY : AG24_CONFIG.STATUS.DRAFT;
+      if(project.data.review){
+        if(project.data.review.investorSubmissionApproved === true ||
+           project.data.review.investorSubmissionApproved === 'true'){
+          project.data.review.investorSubmissionHash=AG24_SUBMISSION_signature_(project.data);
+        } else {
+          project.data.review.investorSubmissionHash='';
+        }
+      }
       const updated = updateProject_(project);
       logEvent_(projectId, 'SECTION_SAVED', { sectionId: sectionId, progress: updated.progress.percent });
       return {

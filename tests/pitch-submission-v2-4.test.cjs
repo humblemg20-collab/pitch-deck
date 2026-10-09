@@ -1,7 +1,7 @@
 'use strict';
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto');
 const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 function sampleData() {
  return {
@@ -34,12 +34,20 @@ function sampleData() {
  };
 }
 function fixture(data) {
- const context={console,Array,Object,String,Number,Math,JSON,RegExp,Date};
+ const context={console,Array,Object,String,Number,Math,JSON,RegExp,Date,
+  Utilities:{DigestAlgorithm:{SHA_256:'sha256'},
+    computeDigest:(algo,text)=>Array.from(crypto.createHash('sha256').update(text).digest())
+      .map(v=>v>127?v-256:v)}};
  vm.createContext(context);
  for(const file of ['PitchQualityEngine.js','PitchSubmissionGate.js']) {
   vm.runInContext(read(file),context,{filename:file});
  }
  const project={projectId:'P1',projectName:'EcoCommerce',data:data||sampleData()};
+ if(project.data.review && project.data.review.investorSubmissionApproved &&
+    !project.data.review.investorSubmissionHash){
+    project.data.review.investorSubmissionHash=
+      context.AG24_SUBMISSION_signature_(project.data);
+ }
  return {ctx:context,project,gate:()=>context.AG24_SUBMISSION_gate_(project)};
 }
 function codes(report){return Array.from(report.issues).map(x=>x.code);}
@@ -80,6 +88,16 @@ test('complete grounded project and human submission review pass the determinist
  assert.equal(result.issueCount,0);
  assert.equal(f.ctx.AG24_SUBMISSION_assertReady_(f.project).ready,true);
 });
+test('review attestation is bound to the exact canonical facts revision',()=>{
+ const f=fixture();
+ assert.equal(f.gate().ready,true);
+ f.project.data.funding.amountRequested+=1;
+ assert.ok(codes(f.gate()).includes('SUBMISSION_SOURCE_CHANGED'));
+ f.project.data.funding.amountRequested-=1;
+ assert.equal(f.gate().ready,true);
+ f.project.data.presentationMedia={approvedAssetIds:['ASSET-NEW']};
+ assert.ok(codes(f.gate()).includes('SUBMISSION_SOURCE_CHANGED'));
+});
 test('numeric budget allocations must add up exactly to the requested funds',()=>{
  const f=fixture();
  assert.equal(f.ctx.AG24_SUBMISSION_budget_(
@@ -107,6 +125,7 @@ test('no final submission if human approval is missing or material content chang
  assert.match(assets,/investorSubmissionApproved=false/);
  assert.match(api,/priorSection=project.data[sectionId]/);
  assert.match(api,/delete prior.investorSubmissionApproved/);
+ assert.match(api,/investorSubmissionHash=AG24_SUBMISSION_signature_/);
 });
 test('submission cannot fake documentary evidence or replace source data',()=>{
  const f=fixture(),before=JSON.stringify(f.project.data);
