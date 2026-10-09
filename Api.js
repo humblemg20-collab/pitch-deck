@@ -168,10 +168,14 @@ function apiSaveSection(input) {
       project.score = calculatePitchReadinessScore_(project.data, project.alerts);
       project.status = project.progress.percent === 100 ? AG24_CONFIG.STATUS.READY : AG24_CONFIG.STATUS.DRAFT;
       if(project.data.review){
-        if(project.data.review.investorSubmissionApproved === true ||
-           project.data.review.investorSubmissionApproved === 'true'){
+        // Only an explicit new final-review save may sign the current dossier.
+        // Re-saving unrelated or unchanged fields must not launder stale review.
+        if(sectionId==='review' && changed &&
+           (project.data.review.investorSubmissionApproved === true ||
+            project.data.review.investorSubmissionApproved === 'true')){
           project.data.review.investorSubmissionHash=AG24_SUBMISSION_signature_(project.data);
-        } else {
+        } else if(project.data.review.investorSubmissionApproved !== true &&
+                  project.data.review.investorSubmissionApproved !== 'true'){
           project.data.review.investorSubmissionHash='';
         }
       }
