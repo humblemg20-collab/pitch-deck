@@ -169,3 +169,24 @@ test('resumed project has a separate explicit OpenAI action and safe status labe
  assert.match(gen,/AG24_STORY_applyCached_\(project,slidesContent\)/);
  assert.match(gen,/OPENAI_REFORMULATED/);
 });
+
+test('per-project model request budget holds despite changing content hashes',()=>{
+ const f=harness();
+ for(let i=0;i<4;i++){
+  f.project.data.solution.solutionDescription='Création de sites pour catégorie '+i;
+  const result=f.prepare();
+  assert.equal(result.ok,true,JSON.stringify({i,error:result.error}));
+ }
+ f.project.data.solution.solutionDescription='Demande supplémentaire';
+ const rejected=f.prepare();
+ assert.equal(rejected.ok,false);
+ assert.equal(rejected.error.message,'STORY_PROJECT_DAILY_LIMIT');
+ assert.equal(f.calls,4);
+ assert.equal(f.rows.length,5);
+});
+test('sensitive emails, tokens and review data are not sent to OpenAI',()=>{
+ const f=harness(),source=f.context.AG24_STORY_source_(f.project);
+ assert.doesNotMatch(JSON.stringify(source),/private@example.com|confidential@example.com|valid-token/);
+ assert.equal(source.funding.amountRequested,'1000000');
+ assert.equal(source.review,undefined);
+});
