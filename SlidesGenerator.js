@@ -19,7 +19,7 @@ function generateStandardPresentation_(project) {
   // Never invokes OpenAI here; deterministic generation is always available.
   const narrativeUse = AG24_STORY_applyCached_(project,slidesContent);
   logEvent_(project.projectId,'STORY_DECK_SOURCE',{
-    mode:narrativeUse.used?'OPENAI_APPROVED':'DETERMINISTIC',status:narrativeUse.status,
+    mode:narrativeUse.used?'OPENAI_REFORMULATED':'DETERMINISTIC',status:narrativeUse.status,
     runId:narrativeUse.runId||''
   });
   const projectAssets = AG24_ASSET_imagesForGeneration_(project.projectId);
