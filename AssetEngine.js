@@ -191,6 +191,14 @@ function AG24_ASSET_findActive_(projectId, assetId) {
  * slide. Approval is canonical in Projects.data.presentationMedia (not Drive
  * metadata). Repeated calls are idempotent; project access token is mandatory.
  */
+function AG24_ASSET_approvedPresentationIds_(project) {
+  const ids=project && project.data && project.data.presentationMedia &&
+    project.data.presentationMedia.approvedAssetIds;
+  if(!Array.isArray(ids))return [];
+  return ids.filter(function(id){return typeof id==='string' && /^ASSET-[\w-]+$/.test(id);})
+    .slice(0,AG24_ASSETS_V1.MAX_ASSETS_PER_PROJECT);
+}
+
 function apiSetProjectAssetPresentationApproval(input) {
   return safeApi_(function() {
     return withScriptLock_(function() {
@@ -204,7 +212,7 @@ function apiSetProjectAssetPresentationApproval(input) {
       if(Object.keys(AG24_MEDIA.ROLE_BY_SLIDE).every(function(key){
         return AG24_MEDIA.ROLE_BY_SLIDE[key].indexOf(asset.role)<0;
       }))throw new Error('Ce type de visuel ne peut pas être présenté dans le deck.');
-      const ids=AG24_MEDIA_approvedIds_(project);
+      const ids=AG24_ASSET_approvedPresentationIds_(project);
       const exists=ids.indexOf(assetId)>=0;
       if(exists===input.approved)return {assetId:assetId,approved:exists,unchanged:true};
       const next=input.approved?ids.concat([assetId]):ids.filter(function(x){return x!==assetId;});
@@ -229,7 +237,7 @@ function apiListProjectAssets(projectId, token) {
     const project = AG24_ASSET_authorize_(projectId, token);
     const records = AG24_ASSET_rows_(project.projectId)
       .filter(function(record) { return record.status === 'ACTIVE'; });
-    const approved=AG24_MEDIA_approvedIds_(project);
+    const approved=AG24_ASSET_approvedPresentationIds_(project);
     return { assets: records.map(function(record){
       const publicRecord=AG24_ASSET_public_(record);
       publicRecord.presentationApproved=approved.indexOf(record.assetId)>=0;
@@ -328,7 +336,7 @@ function apiDeleteProjectAsset(input) {
         console.error('ASSET_DELETE_CLEANUP_PENDING', record.assetId, error);
       }
       // Remove orphaned presentation approval in the same transaction.
-      const approved=AG24_MEDIA_approvedIds_(project);
+      const approved=AG24_ASSET_approvedPresentationIds_(project);
       if(approved.indexOf(record.assetId)>=0){
         project.data.presentationMedia.approvedAssetIds=approved.filter(function(id){
           return id!==record.assetId;
