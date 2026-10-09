@@ -14,10 +14,10 @@ const AG24_MEDIA = Object.freeze({
     traction:Object.freeze(['TRACTION_PROOF','IMPACT'])
   }),
   BOX:Object.freeze({
-    cover:Object.freeze([487,72,432,342]),
-    solution:Object.freeze([484,99,439,312]),
-    team:Object.freeze([484,99,439,312]),
-    traction:Object.freeze([484,99,439,312])
+    cover:Object.freeze([487,72,432,326]),
+    solution:Object.freeze([484,92,439,290]),
+    team:Object.freeze([484,92,439,290]),
+    traction:Object.freeze([484,92,439,290])
   })
 });
 function AG24_MEDIA_approvedIds_(project) {
@@ -105,6 +105,6 @@ function AG24_MEDIA_render_(slide,data) {
     {fontSize:12,color:theme.muted});
   // Explicit disclosure: user-tagged image does not itself certify a result.
   addTextBox_(slide,'VISUEL FOURNI ET SÉLECTIONNÉ PAR LE PORTEUR',
-    489,421,433,20,{fontSize:9,color:theme.muted});
+    489,394,421,20,{fontSize:9,color:theme.muted});
   return true;
 }

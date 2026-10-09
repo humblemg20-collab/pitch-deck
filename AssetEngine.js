@@ -327,6 +327,14 @@ function apiDeleteProjectAsset(input) {
         cleanupPending = true;
         console.error('ASSET_DELETE_CLEANUP_PENDING', record.assetId, error);
       }
+      // Remove orphaned presentation approval in the same transaction.
+      const approved=AG24_MEDIA_approvedIds_(project);
+      if(approved.indexOf(record.assetId)>=0){
+        project.data.presentationMedia.approvedAssetIds=approved.filter(function(id){
+          return id!==record.assetId;
+        });
+        if(!project.slidesUrl&&!project.pdfUrl)updateProject_(project);
+      }
       AG24_ASSET_invalidateDeck_(project);
       logEvent_(project.projectId, 'ASSET_DELETED', {
         assetId: record.assetId, cleanupPending: cleanupPending
