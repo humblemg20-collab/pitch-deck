@@ -7,6 +7,7 @@ function buildStandardDeckContent_(project) {
     market=data.market||{},model=data.businessModel||{},traction=data.traction||{},
     team=data.team||{},funding=data.funding||{},review=data.review||{};
   const quality=AG24_PITCH_quality_(project);
+  const proofUsable=!quality.issues.some(function(issue){return issue.code==='PROBLEM_EVIDENCE_VAGUE';});
   const value=function(v,max){
     const s=String(v===undefined||v===null?'':v).trim();
     if(!s||/^(information à compléter|source requise|à préciser|n\/a)$/i.test(s))return '';
@@ -31,7 +32,7 @@ function buildStandardDeckContent_(project) {
       sideLabel:'PERSONNES CONCERNÉES',sideValue:value(problem.targetUser,150),
       proof:value(problem.problemEvidence,170)},
     {type:'insight',number:3,eyebrow:'CONTEXTE ET OPPORTUNITÉ',
-      title:value(problem.problemEvidence,120)||'Le contexte du problème',
+      title:(proofUsable?value(problem.problemEvidence,120):'')||'Le contexte du problème',
       body:value(problem.consequences,180),
       sideLabel:'ZONE ET SECTEUR',
       sideValue:[identity.country,identity.sector].map(function(x){return value(x,60);}).filter(Boolean).join(' • '),
