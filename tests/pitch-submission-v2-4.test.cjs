@@ -98,6 +98,21 @@ test('review attestation is bound to the exact canonical facts revision',()=>{
  f.project.data.presentationMedia={approvedAssetIds:['ASSET-NEW']};
  assert.ok(codes(f.gate()).includes('SUBMISSION_SOURCE_CHANGED'));
 });
+
+test('a thin dossier cannot be exported merely by changing its disclaimer checkbox',()=>{
+ const f=fixture();
+ f.project.data.problem.consequences='';
+ f.project.data.solution.howItWorks='sites';
+ f.project.data.market.geography='';
+ f.project.data.market.competitors='';
+ f.project.data.team.founders='mike cto afrigreen24';
+ f.project.data.team.keySkills='marketing';
+ const codesNow=codes(f.gate());
+ for(const key of ['CONSEQUENCES_MISSING','CLIENT_JOURNEY_MISSING',
+  'GEOGRAPHY_MISSING','COMPETITOR_UNCLEAR','TEAM_ROLE_UNCLEAR','TEAM_SKILLS_UNCLEAR']){
+   assert.ok(codesNow.includes(key),key);
+ }
+});
 test('numeric budget allocations must add up exactly to the requested funds',()=>{
  const f=fixture();
  assert.equal(f.ctx.AG24_SUBMISSION_budget_(

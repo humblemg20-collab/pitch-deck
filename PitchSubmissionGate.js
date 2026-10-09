@@ -97,8 +97,20 @@ function AG24_SUBMISSION_gate_(project) {
   if(weak(v('problem','targetUser'),18)){
     add('TARGET_TOO_BROAD','problem','Identifier précisément les bénéficiaires plutôt que « tout le monde ».');
   }
+  if(weak(v('problem','consequences'),25)){
+    add('CONSEQUENCES_MISSING','problem','Expliquer les conséquences concrètes du problème pour les clients.');
+  }
   if(weak(v('solution','solutionDescription'),25)||weak(v('solution','valueProposition'),28)){
     add('SOLUTION_TOO_GENERIC','solution','Présenter clairement le service et un bénéfice client spécifique.');
+  }
+  if(weak(v('solution','howItWorks'),25)){
+    add('CLIENT_JOURNEY_MISSING','solution','Présenter un parcours client opérationnel et suffisamment détaillé.');
+  }
+  if(weak(v('market','geography'),5)){
+    add('GEOGRAPHY_MISSING','market','Préciser un territoire commercial prioritaire.');
+  }
+  if(weak(v('market','competitors'),15)){
+    add('COMPETITOR_UNCLEAR','market','Présenter les alternatives réellement utilisées par les clients.');
   }
   if(weak(v('market','payingCustomer'),18)){
     add('PAYING_CUSTOMER_UNCLEAR','market','Identifier les clients qui paient réellement.');
@@ -123,8 +135,11 @@ function AG24_SUBMISSION_gate_(project) {
   if(claims&&weak(v('traction','tractionEvidence'),25)){
     add('TRACTION_CLAIM_UNSUPPORTED','traction','Relier les utilisateurs, pilotes et contrats déclarés à une preuve vérifiable.');
   }
-  if(weak(v('team','founders'),20)){
+  if(weak(v('team','founders'),35)){
     add('TEAM_ROLE_UNCLEAR','team','Préciser le nom, le rôle et l’expérience pertinente des porteurs.');
+  }
+  if(weak(v('team','keySkills'),20)){
+    add('TEAM_SKILLS_UNCLEAR','team','Décrire les compétences réunies pour exécuter le projet.');
   }
   const amount=Number(v('funding','amountRequested'));
   if(!(amount>0))add('FUND_AMOUNT_INVALID','funding','Renseigner un montant positif.');
