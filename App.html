@@ -2038,6 +2038,12 @@ function bindLandingEvents() {
               </div>
             </section>
 
+            <section class="panel" aria-label="Qualité de la présentation">
+              <h3>Qualité du Pitch Deck : ${escapeHtml((state.project.presentationQuality || {}).label || 'BROUILLON')}</h3>
+              <p>Le deck Standard reste gratuit. Vérifiez les preuves, les chiffres et les visuels avant de le transmettre à un financeur.</p>
+              ${((state.project.presentationQuality || {}).issues || []).slice(0, 3).map(function(issue) { return '<p>• '+escapeHtml(issue.message)+'</p>'; }).join('')}
+            </section>
+
             <div class="result-grid">
               <section class="panel">
                 <h3>Recommandations prioritaires</h3>
@@ -2055,7 +2061,7 @@ function bindLandingEvents() {
 
             <section class="generate-card">
               <div>
-                <h3>${state.project.slidesUrl ? 'Votre Pitch Deck Standard est prêt' : 'Générer votre Pitch Deck Standard'}</h3>
+                <h3>${state.project.slidesUrl ? 'Votre Pitch Deck Standard est généré' : 'Générer votre Pitch Deck Standard'}</h3>
                 <p>${state.project.slidesUrl ? 'Retrouvez les deux formats ci-dessous. Vérifiez chaque donnée avant toute présentation.' : 'Le système va structurer vos réponses, créer les 12 slides et exporter le PDF.'}</p>
                 ${state.project.slidesUrl ? `
                   <div class="downloads">
