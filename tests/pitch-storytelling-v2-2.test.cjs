@@ -167,5 +167,5 @@ test('resumed project has a separate explicit OpenAI action and safe status labe
  assert.match(ui,/apiPitchNarrativeStatus/);
  assert.match(ui,/Régénérer le deck/);
  assert.match(gen,/AG24_STORY_applyCached_\(project,slidesContent\)/);
- assert.match(gen,/OPENAI_APPROVED/);
+ assert.match(gen,/OPENAI_REFORMULATED/);
 });
