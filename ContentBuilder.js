@@ -10,7 +10,7 @@ function buildStandardDeckContent_(project) {
   const proofUsable=!quality.issues.some(function(issue){return issue.code==='PROBLEM_EVIDENCE_VAGUE';});
   const value=function(v,max){
     const s=String(v===undefined||v===null?'':v).trim();
-    if(!s||/^(information à compléter|source requise|à préciser|n\/a)$/i.test(s))return '';
+    if(!s||/^(information à compléter|source requise|preuves? à préciser|potentiel de marché à quantifier|compétences? à renforcer non précisées?|à préciser|n\/a)$/i.test(s))return '';
     return truncate_(s,max||200);
   };
   const list=function(v,n){

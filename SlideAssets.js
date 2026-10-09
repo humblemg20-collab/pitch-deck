@@ -17,8 +17,17 @@ function AG24_SLIDE_placeImage_(slide, slideData, assets) {
   const kind = cleanString_(slideData.type, 40).toLowerCase();
   let asset = null;
   let box = null;
+  // V2.3: an image's declared role does not prove contextual relevance.
+  // An investor FOCUS slide never auto-inserts product/team images. Only the
+  // user's explicitly tagged logo can appear on the investor cover.
+  // The existing Assets registry has a role but no semantic approval field.
+  // Block all contextual photos in V2.3 until a separate user-reviewed media
+  // relevance workflow is implemented; never guess relevance from file names.
+  if (slideData.investorLayout && kind !== 'cover') return false;
   if (kind === 'cover') {
-    asset = AG24_SLIDE_selectAsset_(assets, ['COVER_HERO', 'LOGO']);
+    asset = slideData.investorLayout ?
+      AG24_SLIDE_selectAsset_(assets, ['LOGO']) :
+      AG24_SLIDE_selectAsset_(assets, ['LOGO', 'COVER_HERO']);
     box = asset && asset.role === 'LOGO'
       ? [714, 95, 126, 128] : [668, 77, 218, 298];
   } else if (kind === 'solution') {
