@@ -101,7 +101,8 @@ test('no final submission if human approval is missing or material content chang
  f.project.data.businessModel.pricing='10 000';
  assert.ok(codes(f.gate()).includes('PRICING_UNIT_MISSING'));
  const api=read('Api.js'),assets=read('AssetEngine.js');
- assert.match(api,/sectionId!=='review' && project\.data\.review/);
+ assert.match(api,/if\(changed && project\.data\.review\)/);
+ assert.match(api,/if\(sectionId!=='review'\)/);
  assert.match(api,/investorSubmissionApproved=false/);
  assert.match(assets,/investorSubmissionApproved=false/);
  assert.match(api,/priorSection=project.data[sectionId]/);
