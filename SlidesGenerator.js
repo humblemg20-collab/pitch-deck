@@ -27,6 +27,12 @@ function generateStandardPresentation_(project) {
     evidenceMissing:investorAudit.missingEvidence
   });
   const projectAssets = AG24_ASSET_imagesForGeneration_(project.projectId);
+  const mediaAudit = AG24_MEDIA_plan_(project,slidesContent,projectAssets);
+  logEvent_(project.projectId,'DECK_MEDIA_PLAN',{
+    version:mediaAudit.version,approvedAssets:mediaAudit.approvedAssets,
+    imageSlides:mediaAudit.imageSlides,roles:mediaAudit.renderedRoles,
+    unapprovedIgnored:mediaAudit.unapprovedIgnored
+  });
 
   if (!Array.isArray(slidesContent) || !slidesContent.length) {
     throw new Error('Le contenu du Pitch Deck est vide.');
@@ -51,8 +57,8 @@ function generateStandardPresentation_(project) {
     }
 
     slidesContent.forEach(function(slideData, index) {
-      slideData._hasFounderAsset = !!AG24_SLIDE_selectAsset_(projectAssets, ['FOUNDER', 'TEAM']);
-      slideData._coverAssetRole = (AG24_SLIDE_selectAsset_(projectAssets, ['LOGO']) || {}).role || '';
+      slideData._hasFounderAsset = !!(slideData._mediaAsset && ['FOUNDER','TEAM'].indexOf(slideData._mediaAsset.role)>=0);
+      slideData._coverAssetRole = slideData._mediaAsset && slideData._mediaAsset.role || '';
       const slide = createPremiumSlide_(
         presentation,
         slideData || {},
@@ -114,6 +120,11 @@ function createPremiumSlide_(
   applyPremiumCanvas_(slide);
 
   const type = ag24Text_(data.type).toLowerCase();
+
+  if(typeof AG24_MEDIA_render_==='function' && AG24_MEDIA_render_(slide,data)) {
+    addPremiumFooter_(slide,data.number||index+1,totalSlides,data.qualityLabel);
+    return slide;
+  }
 
   if(typeof AG24_INVESTOR_renderFocus_==='function' &&
       AG24_INVESTOR_renderFocus_(slide,data)) {

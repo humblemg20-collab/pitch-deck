@@ -1476,6 +1476,7 @@ function bindLandingEvents() {
     return '<section class="ag24-asset-panel" id="ag24-asset-panel">' +
       '<h3>Documents et images</h3>' +
       '<p>Vos fichiers sont conservés avec votre projet et retrouvés lors de la reprise.</p>' +
+      '<p><strong>Images du Pitch Deck :</strong> approuvez explicitement les photos pertinentes. Elles seront affichées en grand sur les diapositives correspondantes, sans être déformées.</p>' +
       '<label for="ag24-asset-role">Utilisation du fichier</label>' +
       '<select id="ag24-asset-role">' + options.map(function(option) {
         return '<option value="' + option[0] + '">' + escapeHtml(option[1]) + '</option>';
@@ -1493,7 +1494,11 @@ function bindLandingEvents() {
             Math.ceil(Number(asset.bytes || 0) / 1024) + ' Ko</span>' +
           '<div class="ag24-asset-actions">' +
           (asset.kind === 'IMAGE'
-            ? '<button type="button" data-action="preview-asset">Aperçu</button>'
+            ? '<button type="button" data-action="preview-asset">Aperçu</button>' +
+              '<button type="button" data-action="approve-pitch-image">' +
+                (asset.presentationApproved ? 'Retirer du Pitch Deck' : 'Afficher en grand dans le Pitch Deck') +
+              '</button>' +
+              (asset.presentationApproved ? '<span>✓ Visuel approuvé pour le Pitch Deck</span>' : '')
             : '<button type="button" data-action="analyze-asset">' +
                 (findLatestImport_(asset.assetId) && findLatestImport_(asset.assetId).status === 'READY'
                   ? 'Vérifier les propositions' :
@@ -1593,6 +1598,41 @@ function bindLandingEvents() {
       }
     });
 
+
+    panel.querySelectorAll('[data-action="approve-pitch-image"]').forEach(function(button) {
+      button.addEventListener('click',async function() {
+        const item=button.closest('[data-asset-id]');
+        if(!item || !state.project || !state.token || state.assetBusy)return;
+        const assetId=item.dataset.assetId;
+        const asset=state.assets.find(function(entry){return entry.assetId===assetId;});
+        if(!asset || asset.kind!=='IMAGE')return;
+        const approved=!asset.presentationApproved;
+        if(approved && !window.confirm(
+          'Confirmer que cette image correspond réellement à votre activité et autoriser son affichage en grand dans le Pitch Deck ?'
+        ))return;
+        state.assetBusy=true;
+        button.disabled=true;
+        try {
+          unwrap(await callServer('apiSetProjectAssetPresentationApproval',{
+            projectId:state.project.projectId,token:state.token,
+            assetId:assetId,approved:approved
+          }));
+          if(state.project){
+            state.project.slidesUrl='';
+            state.project.pdfUrl='';
+          }
+          await refreshProjectAssets();
+          showToast(approved?'Image approuvée':'Image retirée du deck',
+            'La prochaine génération appliquera automatiquement la bonne composition.',
+            5500);
+        } catch(error) {
+          showToast('Choix non enregistré',error && error.message||'Réessayez.',6000);
+        } finally {
+          state.assetBusy=false;
+          button.disabled=false;
+        }
+      });
+    });
 
     panel.querySelectorAll('[data-action="analyze-asset"]').forEach(function(button) {
       button.addEventListener('click', async function() {

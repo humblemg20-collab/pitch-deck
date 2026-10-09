@@ -186,12 +186,55 @@ function AG24_ASSET_findActive_(projectId, assetId) {
   }) || null;
 }
 
+/**
+ * Explicit owner approval to use a registered image on its matching pitch
+ * slide. Approval is canonical in Projects.data.presentationMedia (not Drive
+ * metadata). Repeated calls are idempotent; project access token is mandatory.
+ */
+function apiSetProjectAssetPresentationApproval(input) {
+  return safeApi_(function() {
+    return withScriptLock_(function() {
+      const project=AG24_ASSET_authorize_(input && input.projectId,input && input.token);
+      const assetId=cleanString_(input && input.assetId,100);
+      if(!input || typeof input.approved!=='boolean') {
+        throw new Error('Décision de présentation invalide.');
+      }
+      const asset=AG24_ASSET_findActive_(project.projectId,assetId);
+      if(!asset || asset.kind!=='IMAGE')throw new Error('Image du projet introuvable.');
+      if(Object.keys(AG24_MEDIA.ROLE_BY_SLIDE).every(function(key){
+        return AG24_MEDIA.ROLE_BY_SLIDE[key].indexOf(asset.role)<0;
+      }))throw new Error('Ce type de visuel ne peut pas être présenté dans le deck.');
+      const ids=AG24_MEDIA_approvedIds_(project);
+      const exists=ids.indexOf(assetId)>=0;
+      if(exists===input.approved)return {assetId:assetId,approved:exists,unchanged:true};
+      const next=input.approved?ids.concat([assetId]):ids.filter(function(x){return x!==assetId;});
+      project.data=project.data||{};
+      project.data.presentationMedia={approvedAssetIds:next};
+      // Approval changes the generated deck, never deletes archived files.
+      if(project.slidesUrl || project.pdfUrl) {
+        AG24_ASSET_invalidateDeck_(project);
+      } else {
+        updateProject_(project);
+      }
+      logEvent_(project.projectId,'DECK_IMAGE_APPROVAL_CHANGED',{
+        assetId:assetId,role:asset.role,approved:input.approved
+      });
+      return {assetId:assetId,approved:input.approved,unchanged:false};
+    });
+  });
+}
+
 function apiListProjectAssets(projectId, token) {
   return safeApi_(function() {
     const project = AG24_ASSET_authorize_(projectId, token);
     const records = AG24_ASSET_rows_(project.projectId)
       .filter(function(record) { return record.status === 'ACTIVE'; });
-    return { assets: records.map(AG24_ASSET_public_) };
+    const approved=AG24_MEDIA_approvedIds_(project);
+    return { assets: records.map(function(record){
+      const publicRecord=AG24_ASSET_public_(record);
+      publicRecord.presentationApproved=approved.indexOf(record.assetId)>=0;
+      return publicRecord;
+    }) };
   });
 }
 
