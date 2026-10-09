@@ -73,6 +73,13 @@ function harness() {
         subtitle:allowed.includes('subtitle')?'Des sites internet pour développer la présence en ligne':''};
     });
     if(responseMode==='hallucination')slides[1].title='Nous avons signé 999 nouveaux contrats';
+    if(responseMode==='overlength')slides[1].title='Ce projet offre un accompagnement numérique et une création de sites internet dédiés aux entreprises locales, en tenant compte des besoins déclarés par les entrepreneurs afin de renforcer leur présence en ligne dans le respect de leurs ressources disponibles.';
+    if(responseMode==='all-overlength')slides.forEach((slide,i)=>{
+      for(const key of ['title','body','subtitle']){
+        if(slide[key])slide[key]='Cette reformulation couvre les éléments du projet et la réalité du marché présentée dans le questionnaire sans ajouter de nouveaux chiffres et sans garantir le résultat. '.repeat(3);
+      }
+    });
+    if(responseMode==='overlength-fabrication')slides[1].title='Nous avons obtenu 999 clients payants grâce à des actions marketing et une croissance commerciale exceptionnelles. '.repeat(3);
     if(responseMode==='bad-structure')slides.pop();
     return {getResponseCode:()=>200,
       getContentText:()=>JSON.stringify({status:'completed',model:'gpt-4.1-mini',
@@ -222,4 +229,42 @@ test('quality failures and unknown errors never leak private diagnostic detail',
  assert.match(u,/result.status==='FAILED' && result.failure/);
  assert.match(u,/result.failure.nextAction/);
  assert.match(u,/Code : /);
+});
+
+test('one overlong field is ignored while all other permitted edits are cached and applied',()=>{
+ const f=harness();
+ f.responseMode='overlength';
+ const result=f.prepare();
+ assert.equal(result.ok,true,JSON.stringify(result.error));
+ assert.equal(result.data.status,'READY');
+ assert.equal(result.data.discardedOverlong,1);
+ assert.equal(f.status().data.status,'READY');
+ assert.equal(f.status().data.discardedOverlong,1);
+ const slides=f.context.buildStandardDeckContent_(f.project);
+ const originalTitle=slides[1].title;
+ const applied=f.context.AG24_STORY_applyCached_(f.project,slides);
+ assert.equal(applied.used,true);
+ assert.equal(slides[1].title,originalTitle,'overlong text must not replace canonical copy');
+ assert.equal(slides[2].title,'Une proposition claire pour les entrepreneurs');
+ assert.equal(f.prepare().data.discardedOverlong,1,'cached warning must survive');
+ assert.equal(f.calls,1,'no second paid call required');
+ assert.ok(f.events.some(e=>e.event==='STORY_READY'&&e.metadata.discardedOverlong===1));
+});
+test('all overlong edits fail cleanly, without silently claiming a successful rewrite',()=>{
+ const f=harness();
+ f.responseMode='all-overlength';
+ assert.equal(f.prepare().ok,false);
+ const report=f.status();
+ assert.equal(report.data.status,'FAILED');
+ assert.equal(report.data.failure.code,'STORY_NO_USABLE_EDITS');
+ assert.equal(report.data.failure.category,'MODEL_OUTPUT');
+ const slides=f.context.buildStandardDeckContent_(f.project);
+ assert.equal(f.context.AG24_STORY_applyCached_(f.project,slides).used,false);
+ assert.equal(slides.length,12);
+});
+test('overlong field containing fabricated numbers still fails security validation',()=>{
+ const f=harness();
+ f.responseMode='overlength-fabrication';
+ assert.equal(f.prepare().ok,false);
+ assert.equal(f.status().data.failure.code,'STORY_UNSUPPORTED_NUMBER');
 });
