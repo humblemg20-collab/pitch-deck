@@ -17,9 +17,14 @@ function AG24_SLIDE_placeImage_(slide, slideData, assets) {
   const kind = cleanString_(slideData.type, 40).toLowerCase();
   let asset = null;
   let box = null;
+  // V2.3: an image's declared role does not prove contextual relevance.
+  // An investor FOCUS slide never auto-inserts product/team images. Only the
+  // user's explicitly tagged logo can appear on the investor cover.
+  if (slideData.investorLayout === 'FOCUS' && kind !== 'cover') return false;
   if (kind === 'cover') {
-    // Prefer a purpose-specific logo over a promotional flyer uploaded as hero.
-    asset = AG24_SLIDE_selectAsset_(assets, ['LOGO', 'COVER_HERO']);
+    asset = slideData.investorLayout ?
+      AG24_SLIDE_selectAsset_(assets, ['LOGO']) :
+      AG24_SLIDE_selectAsset_(assets, ['LOGO', 'COVER_HERO']);
     box = asset && asset.role === 'LOGO'
       ? [714, 95, 126, 128] : [668, 77, 218, 298];
   } else if (kind === 'solution') {
