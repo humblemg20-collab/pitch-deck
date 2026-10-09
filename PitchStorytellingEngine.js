@@ -9,6 +9,8 @@ const AG24_STORY = Object.freeze({
   HEADERS:Object.freeze(['runId','projectId','sourceHash','model','status',
     'fileId','errorCode','createdAt','updatedAt']),
   MAX_ATTEMPTS:3,
+  MAX_PER_PROJECT_24H:4,
+  MAX_GLOBAL_24H:100,
   IN_FLIGHT_MINUTES:20,
   MAX_OUTPUT_TOKENS:4500,
   EDITS:Object.freeze({
@@ -90,6 +92,26 @@ function AG24_STORY_update_(run,patch) {
   ]]);
   return run;
 }
+function AG24_STORY_enforceQuota_(projectId) {
+  // Cost protection for an anonymous consumer web app. The counts are global
+  // because each Apps Script instance has one canonical NarrativeRuns registry.
+  const sheet=AG24_STORY_sheet_(false);
+  if(!sheet||sheet.getLastRow()<2)return;
+  const now=Date.now();
+  const records=sheet.getRange(2,1,sheet.getLastRow()-1,9).getValues();
+  const recent=records.filter(function(row) {
+    const age=now-new Date(row[7]).getTime();
+    return isFinite(age)&&age>=0&&age<24*60*60*1000;
+  });
+  if(recent.length>=AG24_STORY.MAX_GLOBAL_24H) {
+    throw new Error('STORY_GLOBAL_DAILY_LIMIT');
+  }
+  const own=recent.filter(function(row){return String(row[1])===String(projectId);});
+  if(own.length>=AG24_STORY.MAX_PER_PROJECT_24H) {
+    throw new Error('STORY_PROJECT_DAILY_LIMIT');
+  }
+}
+
 function AG24_STORY_matching_(project,model) {
   const source=AG24_STORY_source_(project),hash=AG24_STORY_hash_(source,model);
   const matching=AG24_STORY_all_(project.projectId).filter(function(r){
@@ -264,6 +286,7 @@ function apiPreparePitchNarrative(input) {
       });
       if(inFlight)return {running:true};
       if(match.runs.length>=AG24_STORY.MAX_ATTEMPTS)throw new Error('STORY_RETRY_LIMIT');
+      AG24_STORY_enforceQuota_(project.projectId);
       const now=nowIso_();
       const run={runId:'STORY-'+Utilities.getUuid(),projectId:project.projectId,
         sourceHash:match.hash,model:cfg.model,status:'RUNNING',fileId:'',
