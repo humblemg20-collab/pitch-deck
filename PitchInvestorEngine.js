@@ -137,12 +137,12 @@ function AG24_INVESTOR_renderFocus_(slide,data) {
     secondary=AG24_INVESTOR_validStatus_(data.status);
     foot=secondary?'STADE DÉCLARÉ : '+secondary:'';
   } else if(n===5) {
-    label='PREMIÈRE ÉTAPE DOCUMENTÉE';
+    label=data.submissionMode?'PARCOURS CLIENT':'PREMIÈRE ÉTAPE DOCUMENTÉE';
     primary=(data.items||[])[0]||'';
     foot=(data.items||[]).length===0?'Le parcours nécessite encore une description précise.':'';
   } else if(n===6) {
-    label='CLIENTÈLE CIBLÉE';
-    primary=AG24_INVESTOR_clean_(data.title);
+    label=data.submissionMode?'ZONE COMMERCIALE':'CLIENTÈLE CIBLÉE';
+    primary=data.submissionMode?AG24_INVESTOR_geography_(data.geography):AG24_INVESTOR_clean_(data.title);
     secondary=AG24_INVESTOR_geography_(data.geography);
     foot=secondary?'TERRITOIRE DÉCLARÉ : '+secondary:'';
   } else if(n===7) {
@@ -160,20 +160,20 @@ function AG24_INVESTOR_renderFocus_(slide,data) {
     primary=AG24_INVESTOR_clean_(data.title);
     foot=(data.competitors||[]).length?'ALTERNATIVE CITÉE : '+data.competitors[0]:'';
   } else if(n===10) {
-    label='PROCHAIN JALON DÉCLARÉ';
+    label=data.submissionMode?'PROCHAIN JALON':'PROCHAIN JALON DÉCLARÉ';
     primary=(data.milestones||[])[0]||'';
-    foot=(data.milestones||[]).length?'OBJECTIF À VALIDER AVEC LE PORTEUR':'';
+    foot=data.submissionMode?'':((data.milestones||[]).length?'OBJECTIF À VALIDER AVEC LE PORTEUR':'');
   } else if(n===11) {
     label='PORTEUR / ÉQUIPE';
     primary=(data.founders||[])[0]||AG24_INVESTOR_clean_(data.skills);
     secondary=AG24_INVESTOR_clean_(data.skills);
     foot=secondary?'COMPÉTENCE DÉCLARÉE : '+secondary:'';
   } else if(n===12) {
-    label='BESOIN DE FINANCEMENT';
-    primary=AG24_INVESTOR_clean_(data.title);
+    label=data.submissionMode?'UTILISATION PRIORITAIRE':'BESOIN DE FINANCEMENT';
+    primary=data.submissionMode?(data.uses||[])[0]||'':AG24_INVESTOR_clean_(data.title);
     secondary=AG24_INVESTOR_clean_(data.subtitle);
-    foot=(data.uses||[]).length>1?'POSTES DÉCLARÉS : '+data.uses.slice(0,2).join(' • '):
-      'Ventilation détaillée des fonds à présenter avant sollicitation.';
+    foot=data.submissionMode?'':((data.uses||[]).length>1?'POSTES DÉCLARÉS : '+data.uses.slice(0,2).join(' • '):
+      'Ventilation détaillée des fonds à présenter avant sollicitation.');
   } else return false;
 
   const left=(n%2===0)?54:108;

@@ -3,7 +3,10 @@
  * SlidesGenerator.gs — Premium Design V2
  */
 
-function generateStandardPresentation_(project) {
+function generateStandardPresentation_(project, options) {
+  const submission=!!(options && options.submission);
+  // Defend against direct internal invocation bypassing the public API.
+  if(submission) AG24_SUBMISSION_assertReady_(project);
   if (!project) {
     throw new Error('Projet introuvable pour la génération du Pitch Deck.');
   }
@@ -19,6 +22,19 @@ function generateStandardPresentation_(project) {
   // Never invokes OpenAI here; deterministic generation is always available.
   const narrativeUse = AG24_STORY_applyCached_(project,slidesContent);
   const investorAudit = AG24_INVESTOR_plan_(project,slidesContent);
+  if(submission) {
+    slidesContent.forEach(function(slide){
+      slide.submissionMode=true;
+      slide.submissionProjectName=project.projectName||'';
+      slide.qualityLabel='';
+      if(Number(slide.number)===8) {
+        // A textual claim ("Pilotes", "Contrats") is not a measured metric.
+        slide.metrics=(slide.metrics||[]).filter(function(metric){
+          return /^[ds.,]+$/.test(String(metric.value||''));
+        });
+      }
+    });
+  }
   logEvent_(project.projectId,'STORY_DECK_SOURCE',{
     mode:narrativeUse.used?'OPENAI_REFORMULATED':'DETERMINISTIC',status:narrativeUse.status,
     runId:narrativeUse.runId||'',planVersion:investorAudit.version,
@@ -44,7 +60,7 @@ function generateStandardPresentation_(project) {
   );
 
   const presentationName =
-    projectName + ' - Pitch Deck Standard - AfriGreen24';
+    projectName + (submission?' - Pitch Deck Investisseur':' - Pitch Deck Standard - AfriGreen24');
 
   const presentation = SlidesApp.create(presentationName);
   const presentationId = presentation.getId();
@@ -122,13 +138,13 @@ function createPremiumSlide_(
   const type = ag24Text_(data.type).toLowerCase();
 
   if(typeof AG24_MEDIA_render_==='function' && AG24_MEDIA_render_(slide,data)) {
-    addPremiumFooter_(slide,data.number||index+1,totalSlides,data.qualityLabel);
+    addPremiumFooter_(slide,data.number||index+1,totalSlides,data.qualityLabel,data.submissionMode,data.submissionProjectName);
     return slide;
   }
 
   if(typeof AG24_INVESTOR_renderFocus_==='function' &&
       AG24_INVESTOR_renderFocus_(slide,data)) {
-    addPremiumFooter_(slide,data.number||index+1,totalSlides,data.qualityLabel);
+    addPremiumFooter_(slide,data.number||index+1,totalSlides,data.qualityLabel,data.submissionMode,data.submissionProjectName);
     return slide;
   }
 
@@ -190,7 +206,9 @@ function createPremiumSlide_(
     slide,
     data.number || index + 1,
     totalSlides,
-    data.qualityLabel
+    data.qualityLabel,
+    data.submissionMode,
+    data.submissionProjectName
   );
   return slide;
 }
@@ -257,7 +275,7 @@ function applyPremiumCanvas_(slide) {
 
 function createCoverSlide_(slide, data) {
   const theme=getPremiumTheme_();
-  addTextBox_(slide,'AFRIGREEN24  /  INVESTOR PRESENTATION',54,47,525,26,
+  addTextBox_(slide,data.submissionMode?'PRÉSENTATION INVESTISSEUR':'AFRIGREEN24  /  INVESTOR PRESENTATION',54,47,525,26,
     {fontSize:11,bold:true,color:theme.green});
   addTextBox_(slide,ag24Text_(data.title,'Projet sans nom'),54,103,540,128,
     {fontSize:40,bold:true,color:theme.white});
@@ -1141,7 +1159,9 @@ function addPremiumFooter_(
   slide,
   number,
   totalSlides,
-  qualityLabel
+  qualityLabel,
+  submissionMode,
+  submissionProjectName
 ) {
   const theme = getPremiumTheme_();
 
@@ -1158,7 +1178,7 @@ function addPremiumFooter_(
 
   addTextBox_(
     slide,
-    'AfriGreen24 Pitch Studio',
+    submissionMode ? ag24Text_(submissionProjectName,'Pitch Deck') : 'AfriGreen24 Pitch Studio',
     54,
     428,
     300,
@@ -1169,7 +1189,7 @@ function addPremiumFooter_(
     }
   );
 
-  if (qualityLabel && qualityLabel !== 'PRÊT POUR REVUE HUMAINE') {
+  if (!submissionMode && qualityLabel && qualityLabel !== 'PRÊT POUR REVUE HUMAINE') {
     addTextBox_(slide,qualityLabel + ' • DONNÉES À VÉRIFIER',
       330,426,430,20,{fontSize:9,bold:true,color:theme.yellow,
       align:SlidesApp.ParagraphAlignment.CENTER});

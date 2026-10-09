@@ -218,6 +218,10 @@ function apiSetProjectAssetPresentationApproval(input) {
       const next=input.approved?ids.concat([assetId]):ids.filter(function(x){return x!==assetId;});
       project.data=project.data||{};
       project.data.presentationMedia={approvedAssetIds:next};
+      if(project.data.review){
+        project.data.review.investorSubmissionApproved=false;
+        project.data.review.investorSubmissionHash='';
+      }
       // Approval changes the generated deck, never deletes archived files.
       if(project.slidesUrl || project.pdfUrl) {
         AG24_ASSET_invalidateDeck_(project);
@@ -341,6 +345,10 @@ function apiDeleteProjectAsset(input) {
         project.data.presentationMedia.approvedAssetIds=approved.filter(function(id){
           return id!==record.assetId;
         });
+        if(!project.slidesUrl&&!project.pdfUrl)updateProject_(project);
+      }
+      if(record.kind==='IMAGE' && project.data && project.data.review){
+        project.data.review.investorSubmissionApproved=false;
         if(!project.slidesUrl&&!project.pdfUrl)updateProject_(project);
       }
       AG24_ASSET_invalidateDeck_(project);

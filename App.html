@@ -2106,6 +2106,14 @@ function bindLandingEvents() {
               <button class="btn btn-secondary" type="button" data-action="prepare-story">Améliorer les 12 slides avec GreenIN AI</button>
               <p class="empty-note">Cette étape est facultative. La génération gratuite fonctionne également sans GreenIN AI.</p>
             </section>
+            <section class="panel" aria-label="Export destiné aux financeurs" id="ag24-submission-panel">
+              <h3>Version destinée aux financeurs</h3>
+              <p>Le PDF standard reste accessible gratuitement. Pour obtenir une version propre à transmettre, les informations, la ventilation du financement et la relecture finale doivent être validées.</p>
+              <p id="ag24-submission-status" role="status" aria-live="polite">Vérification des informations…</p>
+              <div id="ag24-submission-issues"></div>
+              <button class="btn btn-primary" type="button" data-action="generate-submission-deck" disabled>Exporter la version investisseur</button>
+              <p class="empty-note">Ce contrôle ne garantit ni l’éligibilité ni l’obtention d’un financement. Chaque plateforme possède ses propres critères.</p>
+            </section>
             <section class="generate-card">
               <div>
                 <h3>${state.project.slidesUrl ? 'Votre Pitch Deck Standard est généré' : 'Générer votre Pitch Deck Standard'}</h3>
@@ -2158,6 +2166,9 @@ function bindLandingEvents() {
     if (generate) generate.addEventListener('click', generateDeck);
     const ai = document.querySelector('[data-action="prepare-story"]');
     if (ai) ai.addEventListener('click', preparePitchStory_);
+    const submit=document.querySelector('[data-action="generate-submission-deck"]');
+    if(submit)submit.addEventListener('click',generateSubmissionDeck_);
+    refreshPitchSubmission_();
     refreshPitchStoryStatus_();
   }
 
@@ -2231,6 +2242,58 @@ function bindLandingEvents() {
     } finally {
       const current=document.querySelector('[data-action="prepare-story"]');
       if(current){current.disabled=false;current.textContent='Améliorer les 12 slides avec GreenIN AI';}
+    }
+  }
+
+
+  async function refreshPitchSubmission_() {
+    if(!state.project||!state.token)return;
+    const pid=state.project.projectId;
+    const status=document.getElementById('ag24-submission-status');
+    const details=document.getElementById('ag24-submission-issues');
+    const button=document.querySelector('[data-action="generate-submission-deck"]');
+    if(button)button.disabled=true;
+    try {
+      const result=unwrap(await callServer('apiEvaluatePitchSubmission',pid,state.token));
+      if(!state.project||state.project.projectId!==pid)return;
+      if(status)status.textContent=result.ready?
+        'Dossier vérifié : export investisseur disponible après relecture.':
+        result.issueCount+' point(s) à corriger avant tout export investisseur.';
+      if(details)details.innerHTML=result.ready?
+        '<p>Le contrôle de complétude est passé. Vérifiez encore le rendu et les exigences de la plateforme choisie.</p>':
+        (result.issues||[]).slice(0,12).map(function(issue){
+          return '<p>• '+escapeHtml(issue.message)+'</p>';
+        }).join('')+(result.issueCount>12?'<p>Autres points à corriger dans le questionnaire.</p>':'');
+      if(button)button.disabled=!result.ready;
+    } catch(error) {
+      if(status)status.textContent='Contrôle investisseur indisponible. Aucun export final autorisé.';
+      if(details)details.textContent='Le PDF de travail reste disponible.';
+    }
+  }
+  async function generateSubmissionDeck_() {
+    if(!state.project||!state.token)return;
+    if(!window.confirm('Générer la version destinée aux financeurs ? Assurez-vous que les textes, chiffres, sources et visuels ont été relus.'))return;
+    const button=document.querySelector('[data-action="generate-submission-deck"]');
+    if(button)button.disabled=true;
+    showGenerationModal();
+    try {
+      const result=unwrap(await callServer(
+        'apiGenerateSubmissionDeck',state.project.projectId,state.token));
+      state.project=result.project;
+      finishGenerationSteps();
+      window.setTimeout(function(){
+        closeGenerationModal();renderResults();
+        showToast('PDF investisseur créé',
+          'Version sans annotations internes disponible. Vérifiez-la avant de la déposer.',6000);
+      },900);
+    } catch(error) {
+      closeGenerationModal();
+      showToast('Export investisseur bloqué',
+        'Les informations ont changé ou des points restent à corriger. '+(error&&error.message||''),6500);
+      await refreshPitchSubmission_();
+    } finally {
+      // Readiness, never the completion handler, owns this control's state.
+      await refreshPitchSubmission_();
     }
   }
 
