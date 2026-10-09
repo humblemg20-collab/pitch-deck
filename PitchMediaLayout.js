@@ -104,7 +104,7 @@ function AG24_MEDIA_render_(slide,data) {
   if(label)addTextBox_(slide,label,54,346,412,62,
     {fontSize:12,color:theme.muted});
   // Explicit disclosure: user-tagged image does not itself certify a result.
-  addTextBox_(slide,'VISUEL FOURNI ET SÉLECTIONNÉ PAR LE PORTEUR',
+  if(!data.submissionMode) addTextBox_(slide,'VISUEL FOURNI ET SÉLECTIONNÉ PAR LE PORTEUR',
     489,394,421,20,{fontSize:9,color:theme.muted});
   return true;
 }

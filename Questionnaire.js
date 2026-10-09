@@ -121,7 +121,8 @@ function getQuestionnaireSchema_() {
         field_('sourceLinks', 'Sources et liens utiles', 'textarea', false, 'Un lien ou une référence par ligne.', 'Ajoutez les sources des chiffres importants.', { maxLength: 1400 }),
         field_('contactName', 'Nom du contact à afficher', 'text', true, 'Prénom et nom', 'Cette information apparaît sur la dernière slide.'),
         field_('contactEmail', 'E-mail de contact à afficher', 'email', true, 'contact@entreprise.com', 'Utilisez une adresse professionnelle si possible.'),
-        field_('declaration', 'Je confirme que les informations fournies sont sincères et que les hypothèses sont présentées comme telles.', 'checkbox', true, '', 'Cette confirmation est obligatoire avant la génération.')
+        field_('declaration', 'Je confirme que les informations fournies sont sincères et que les hypothèses sont présentées comme telles.', 'checkbox', true, '', 'Cette confirmation est obligatoire avant la génération.'),
+        field_('investorSubmissionApproved', 'Après vérification, je confirme avoir relu les chiffres, les sources, les informations de financement et les visuels pour une transmission à un financeur.', 'checkbox', false, '', 'La version de travail reste disponible sans cette confirmation. Une modification du dossier impose une nouvelle revue.')
       ]
     }
   ];

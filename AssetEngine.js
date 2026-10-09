@@ -218,6 +218,7 @@ function apiSetProjectAssetPresentationApproval(input) {
       const next=input.approved?ids.concat([assetId]):ids.filter(function(x){return x!==assetId;});
       project.data=project.data||{};
       project.data.presentationMedia={approvedAssetIds:next};
+      if(project.data.review)project.data.review.investorSubmissionApproved=false;
       // Approval changes the generated deck, never deletes archived files.
       if(project.slidesUrl || project.pdfUrl) {
         AG24_ASSET_invalidateDeck_(project);

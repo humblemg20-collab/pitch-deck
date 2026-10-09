@@ -136,6 +136,11 @@ function apiSaveSection(input) {
       const changed = JSON.stringify(project.data[sectionId] || {}) !==
         JSON.stringify(nextSection);
       project.data[sectionId] = nextSection;
+      // Any later correction of canonical answers invalidates the owner's
+      // previous final-review attestation. The owner must review again.
+      if(changed && sectionId!=='review' && project.data.review){
+        project.data.review.investorSubmissionApproved=false;
+      }
       // A changed answer invalidates the old deck, but never deletes its archived files.
       if (changed && (project.slidesUrl || project.pdfUrl)) {
         project.slidesUrl = '';
@@ -176,7 +181,23 @@ function apiAnalyzeProject(projectId, token) {
   });
 }
 
+function apiEvaluatePitchSubmission(projectId, token) {
+  return safeApi_(function(){
+    const project=findProject_(cleanString_(projectId,100));
+    if(!project)throw new Error('Projet introuvable.');
+    assertProjectToken_(project,token);
+    return AG24_SUBMISSION_gate_(project);
+  });
+}
+
+function apiGenerateSubmissionDeck(projectId, token) {
+  return AG24_API_generateDeck_(projectId,token,'SUBMISSION');
+}
 function apiGenerateStandardDeck(projectId, token) {
+  return AG24_API_generateDeck_(projectId,token,'STANDARD');
+}
+function AG24_API_generateDeck_(projectId,token,mode) {
+
   return safeApi_(function() {
     return withScriptLock_(function() {
       let project = findProject_(cleanString_(projectId, 100));
@@ -190,6 +211,10 @@ function apiGenerateStandardDeck(projectId, token) {
       if (!declaration) throw new Error('Confirmez la déclaration de sincérité avant de générer le deck.');
       if (!cleanString_(project.projectName)) throw new Error('Le nom du projet est obligatoire.');
       const presentationQuality = AG24_PITCH_quality_(project);
+      // Recheck after acquiring the project lock. A disabled UI button is
+      // never sufficient authorization for an investor-ready export.
+      const submissionGate=mode==='SUBMISSION'?
+        AG24_SUBMISSION_assertReady_(project):null;
       logEvent_(project.projectId,'PRESENTATION_QUALITY_GATE',{
         state:presentationQuality.state,issueCodes:presentationQuality.issues.map(function(item){return item.code;})
       });
@@ -198,7 +223,7 @@ function apiGenerateStandardDeck(projectId, token) {
       let pdf = null;
       try {
         // A single generator creates Slides; exactly one exporter creates the PDF.
-        presentation = generateStandardPresentation_(project);
+        presentation = generateStandardPresentation_(project,{submission:mode==='SUBMISSION'});
         pdf = exportPresentationToPdf_(project, presentation);
         project.slidesUrl = presentation.slidesUrl;
         project.pdfUrl = pdf.pdfUrl;
@@ -219,11 +244,12 @@ function apiGenerateStandardDeck(projectId, token) {
       }
       logEvent_(project.projectId, 'DECK_GENERATED', {
         score: project.score.total,
+        mode:mode,submissionGate:submissionGate&&submissionGate.version||'',
         slidesUrl: project.slidesUrl,
         pdfUrl: project.pdfUrl
       });
       sendDeckGeneratedEmail_(project);
-      return { project: publicProject_(project),presentationQuality:presentationQuality };
+      return { project: publicProject_(project),presentationQuality:presentationQuality,mode:mode,submissionGate:submissionGate };
     });
   });
 }
