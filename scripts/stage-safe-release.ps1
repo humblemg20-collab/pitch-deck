@@ -9,7 +9,7 @@ param(
   [Parameter(Mandatory=$true)][string]$ExpectedScriptId,
   [Parameter(Mandatory=$true)][string]$ExpectedCommit,
   [string]$RepositoryRoot = (Split-Path -Parent $PSScriptRoot),
-  [string]$ExpectedBranch = 'main',
+  [string]$ExpectedBranch = 'feature/asset-engine-v1-20261008',
   [string]$BaseCommit = 'b49030fea33e786abd5a5f09b27b74849df97e45',
   [string]$OutputRoot = ''
 )
