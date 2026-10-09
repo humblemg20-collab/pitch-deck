@@ -122,6 +122,9 @@ function pitchAgAppendLink_(sheet,identity,pitchId) {
 function pitchAgOpen_(req) {
   const identity=pitchAgIdentity_(req);
   return withScriptLock_(function() {
+    // A missing webapp URL must not rotate an existing project's token.
+    const liveUrl=getPrivateConfig_().webAppUrl || ScriptApp.getService().getUrl() || '';
+    if(!liveUrl) throw new Error('PITCH_AG_WEBAPP_URL_MISSING');
     const sheet=identity.sourceId?pitchAgLinksSheet_(true):null;
     const selection=pitchAgSelect_(identity,sheet);
     let project=selection.project,token='',recoveryCode='',created=false;
