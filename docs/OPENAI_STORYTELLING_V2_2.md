@@ -1,12 +1,12 @@
-# AfriGreen24 PitchStudio V2.2 — OpenAI Storytelling Engine
+# AfriGreen24 PitchStudio V2.2 — GreenIN AI Storytelling Engine (OpenAI backend)
 
 ## Transformation
 
-Remplacer le copier-coller du questionnaire par une narration OpenAI adaptée aux 12 slides, sans changer la source canonique Projects.dataJson dans Google Sheets. Les projets repris par lien restent compatibles.
+Remplacer le copier-coller du questionnaire par une narration GreenIN AI adaptée aux 12 slides, sans changer la source canonique Projects.dataJson dans Google Sheets. Les projets repris par lien restent compatibles.
 
 ## Exécution
 
-1. Le porteur clique sur « Améliorer les 12 slides avec OpenAI » et valide explicitement la transmission. Le serveur exige encore consent=true.
+1. Le porteur clique sur « Améliorer les 12 slides avec GreenIN AI » et valide explicitement la transmission. Le serveur exige encore consent=true.
 2. apiPreparePitchNarrative vérifie le token, récupère les faits utiles du questionnaire, calcule une empreinte SHA-256 incluant modèle et version, et cherche une version déjà prête.
 3. Une réservation RUNNING est effectuée sous script lock, puis un unique appel OpenAI Responses API avec store:false et un JSON Schema strict.
 4. Après validation des retours, le résultat est persisté dans Google Drive (generated/narratives), référencé dans la nouvelle feuille NarrativeRuns ; sinon FAILED/STALE et logs d'erreur structurés.
@@ -15,7 +15,7 @@ Remplacer le copier-coller du questionnaire par une narration OpenAI adaptée au
 ## Garde-fous
 
 - Données transmises : champs factuels autorisés du questionnaire. Exclusion des emails contacts, tokens de reprise, déclarations et documents importés.
-- Champs modifiables par l'IA : narratifs limités, pas les montants, sources, métriques, contacts, statut commercial ou nombre de slides.
+- Champs modifiables par GreenIN AI : narratifs limités, pas les montants, sources, métriques, contacts, statut commercial ou nombre de slides.
 - Chiffres nouveaux, URL/HTML ou affirmations contractuelles sensibles non étayées sont refusés.
 - Les contrôles déterministes sont partiels : une relecture humaine reste nécessaire pour les nuances sémantiques.
 - Quotas OpenAI sous lock : trois tentatives par empreinte, quatre requêtes par projet/24 h et cent requêtes globales/24 h.

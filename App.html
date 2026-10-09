@@ -1482,7 +1482,7 @@ function bindLandingEvents() {
       }).join('') + '</select>' +
       '<label for="ag24-asset-file">Choisir un fichier</label>' +
       '<input id="ag24-asset-file" type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg">' +
-      '<small>Images PNG/JPEG : 2 Mo max. PDF/Word : 8 Mo max. Les documents sont conservés sur Drive. Leur analyse par OpenAI est lancée uniquement sur votre demande.</small>' +
+      '<small>Images PNG/JPEG : 2 Mo max. PDF/Word : 8 Mo max. Les documents sont conservés sur Drive. GreenIN AI les analyse uniquement avec votre autorisation ; le traitement technique est assuré par OpenAI.</small>' +
       '<button class="btn btn-secondary" type="button" data-action="upload-project-asset">Ajouter au dossier</button>' +
       '<div class="ag24-assets-list">' +
       (state.assets.length ? state.assets.map(function(asset) {
@@ -1501,7 +1501,7 @@ function bindLandingEvents() {
                   ? 'Voir l’analyse appliquée' :
                  findLatestImport_(asset.assetId) && findLatestImport_(asset.assetId).status === 'RUNNING'
                   ? 'Actualiser l’analyse' :
-                  'Analyser avec OpenAI') +
+                  'Analyser avec GreenIN AI') +
               '</button>') +
           '<button type="button" data-action="delete-asset">Retirer</button>' +
           '</div>' +
@@ -1608,16 +1608,16 @@ function bindLandingEvents() {
           return showToast('Analyse en cours', 'Actualisez après la réponse du serveur.', 4500);
         }
         if (!window.confirm(
-          'Autoriser l’analyse de ce document par OpenAI ? Le fichier sera transmis au service OpenAI pour proposer des réponses. Aucun champ ne sera modifié sans votre validation.'
+          'Autoriser GreenIN AI à analyser ce document ? Pour cette analyse, le fichier sera transmis à OpenAI, fournisseur technique de GreenIN AI. Aucune réponse ne sera modifiée sans votre validation.'
         )) return;
         state.importBusy = true;
         button.disabled = true;
-        button.textContent = 'Analyse OpenAI…';
+        button.textContent = 'Analyse GreenIN AI…';
         try {
           const health = unwrap(await callServer('apiPitchOpenAIHealth',
             state.project.projectId, state.token));
           if (!health.configured) {
-            throw new Error('OpenAI non configuré côté serveur. Contactez AfriGreen24.');
+            throw new Error('GreenIN AI n’est pas encore disponible. Contactez AfriGreen24.');
           }
           const result = unwrap(await callServer('apiAnalyzeProjectDocument',{
             projectId:state.project.projectId,token:state.token,assetId:assetId,
@@ -1632,7 +1632,7 @@ function bindLandingEvents() {
           }
         } catch (error) {
           showToast('Analyse interrompue',
-            error && error.message ? error.message : 'Erreur OpenAI.', 7000);
+            greenInAiPublicError_(error), 7000);
           await refreshProjectAssets();
         } finally {
           state.importBusy = false;
@@ -1711,8 +1711,8 @@ function bindLandingEvents() {
     }).join('');
     overlay.innerHTML =
       '<section class="ag24-import-modal" role="dialog" aria-modal="true">' +
-      '<h2>Propositions OpenAI à vérifier</h2>' +
-      '<p>Les preuves citées par l’IA doivent être confrontées au document. Aucune proposition n’est appliquée automatiquement.</p>' +
+      '<h2>Propositions GreenIN AI à vérifier</h2>' +
+      '<p>Les preuves proposées par GreenIN AI doivent être vérifiées dans le document. Aucune proposition n’est appliquée automatiquement.</p>' +
       '<p>' + fields.length + ' proposition(s) extraites · Import ' + escapeHtml(importId) + '</p>' +
       '<div class="ag24-import-list">' +
         (suggestions || '<p>Aucune proposition fiable détectée.</p>') +
@@ -2059,12 +2059,12 @@ function bindLandingEvents() {
               </section>
             </div>
 
-            <section class="panel" aria-label="Storytelling OpenAI">
-              <h3><span aria-hidden="true">✦</span> Reformulation du Pitch Deck avec OpenAI</h3>
-              <p>L’IA retravaille uniquement la narration des 12 slides. Les réponses originales, chiffres, sources, montant demandé et documents restent inchangés. Votre autorisation est nécessaire avant tout envoi des réponses à OpenAI.</p>
+            <section class="panel" aria-label="Storytelling GreenIN AI">
+              <h3><span aria-hidden="true">✦</span> Reformulation du Pitch Deck avec GreenIN AI</h3>
+              <p>GreenIN AI reformule uniquement la narration des 12 slides. Les réponses originales, chiffres, sources, montant demandé et documents restent inchangés. Avec votre accord, les réponses pertinentes sont transmises à OpenAI, notre fournisseur technique.</p>
               <p id="ag24-story-status" role="status" aria-live="polite">État de la reformulation : vérification…</p>
-              <button class="btn btn-secondary" type="button" data-action="prepare-story">Améliorer les 12 slides avec OpenAI</button>
-              <p class="empty-note">Cette étape est facultative. La génération gratuite fonctionne également sans IA.</p>
+              <button class="btn btn-secondary" type="button" data-action="prepare-story">Améliorer les 12 slides avec GreenIN AI</button>
+              <p class="empty-note">Cette étape est facultative. La génération gratuite fonctionne également sans GreenIN AI.</p>
             </section>
             <section class="generate-card">
               <div>
@@ -2121,6 +2121,15 @@ function bindLandingEvents() {
     refreshPitchStoryStatus_();
   }
 
+  function greenInAiPublicError_(error) {
+    const message = String(error && error.message || '');
+    if (/^(?:OPENAI_|STORY_|AG24_IMPORT_|OPENAI\b)|HTTP_4\d\d|HTTP_5\d\d/.test(message)) {
+      return 'GreenIN AI ne peut pas terminer cette opération pour le moment. Vos données restent enregistrées ; vous pouvez réessayer.';
+    }
+    return message.replace(/\bOpenAI\b/g,'GreenIN AI') ||
+      'GreenIN AI est momentanément indisponible.';
+  }
+
   async function refreshPitchStoryStatus_() {
     if(!state.project || !state.token) return;
     const projectId=state.project.projectId;
@@ -2134,21 +2143,21 @@ function bindLandingEvents() {
       node.textContent=result.status==='READY'?
         'Reformulation prête : elle sera utilisée lors de la prochaine génération du deck.':
         result.status==='RUNNING'?'Reformulation en cours. Attendez la fin avant de générer.':
-        result.status==='UNAVAILABLE'?'OpenAI n’est pas configuré. Le deck standard reste disponible.':
-        'Aucune reformulation valide pour les réponses actuelles. Vous pouvez la préparer ou générer sans IA.';
+        result.status==='UNAVAILABLE'?'GreenIN AI n’est pas encore configuré. Le deck standard reste disponible.':
+        'Aucune reformulation valide pour les réponses actuelles. Vous pouvez la préparer ou générer sans GreenIN AI.';
     } catch(error) {
       const node=document.getElementById('ag24-story-status');
-      if(node)node.textContent='Statut OpenAI indisponible. La génération standard reste possible.';
+      if(node)node.textContent='Statut GreenIN AI indisponible. La génération standard reste possible.';
     }
   }
 
   async function preparePitchStory_() {
     if(!state.project || !state.token)return;
     // Explicit opt-in before sending user questionnaire text to OpenAI.
-    if(!window.confirm('Autoriser l’envoi des réponses de ce projet à OpenAI pour reformuler les 12 slides ? Les réponses originales resteront inchangées.'))return;
+    if(!window.confirm('Autoriser GreenIN AI à reformuler les 12 slides ? Les réponses pertinentes seront transmises à OpenAI, fournisseur technique de GreenIN AI. Vos réponses originales resteront inchangées.'))return;
     const projectId=state.project.projectId;
     const button=document.querySelector('[data-action="prepare-story"]');
-    if(button){button.disabled=true;button.textContent='Reformulation OpenAI…';}
+    if(button){button.disabled=true;button.textContent='Reformulation GreenIN AI…';}
     try {
       const result=unwrap(await callServer('apiPreparePitchNarrative',{
         projectId:projectId,token:state.token,consent:true
@@ -2164,11 +2173,11 @@ function bindLandingEvents() {
       await refreshPitchStoryStatus_();
     } catch(error) {
       showToast('Reformulation indisponible',
-        'Le deck standard reste utilisable. '+(error&&error.message||''),7000);
+        'Le deck standard reste utilisable. '+greenInAiPublicError_(error),7000);
       await refreshPitchStoryStatus_();
     } finally {
       const current=document.querySelector('[data-action="prepare-story"]');
-      if(current){current.disabled=false;current.textContent='Améliorer les 12 slides avec OpenAI';}
+      if(current){current.disabled=false;current.textContent='Améliorer les 12 slides avec GreenIN AI';}
     }
   }
 

@@ -1,8 +1,8 @@
-# Pitch Deck — OpenAI Import Engine V1
+# Pitch Deck — GreenIN AI / OpenAI Import Engine V1
 
 ## Décision CTO
 
-**OPENAI est l'unique provider IA du Pitch Deck.** Aucun HumbleOS worker, endpoint ou fallback HumbleOS.
+**GreenIN AI est la marque affichée aux utilisateurs ; OpenAI reste l'unique fournisseur technique de traitement.** Aucun HumbleOS worker, endpoint ou fallback HumbleOS.
 Le système métier détermine les droits, les limites, les champs autorisés, les statuts et la fusion.
 OpenAI propose uniquement des valeurs qualitatives provenant du document.
 
@@ -74,4 +74,4 @@ OpenAI propose uniquement des valeurs qualitatives provenant du document.
 Le moteur est un **import avec validation humaine**, pas un service de fact-checking externe.
 Les PDF peuvent fournir texte et images de pages, les DOC/DOCX du texte ; des graphiques intégrés dans Word risquent de ne pas être exploités. <https://developers.openai.com/api/docs/guides/file-inputs>
 Les fichiers sont limités à 8 Mio pour limiter les risques et coûts ; ce n'est pas une protection antivirus.
-Les documents sont envoyés au service OpenAI uniquement lorsque l'utilisateur sélectionne **« Analyser avec OpenAI »** et accepte l'avertissement.
+Les documents sont envoyés au service OpenAI uniquement lorsque l'utilisateur sélectionne **« Analyser avec GreenIN AI »** et accepte l'avertissement.
