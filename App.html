@@ -2059,6 +2059,13 @@ function bindLandingEvents() {
               </section>
             </div>
 
+            <section class="panel" aria-label="Storytelling OpenAI">
+              <h3><span aria-hidden="true">✦</span> Reformulation du Pitch Deck avec OpenAI</h3>
+              <p>L’IA retravaille uniquement la narration des 12 slides. Les réponses originales, chiffres, sources, montant demandé et documents restent inchangés. Votre autorisation est nécessaire avant tout envoi des réponses à OpenAI.</p>
+              <p id="ag24-story-status" role="status" aria-live="polite">État de la reformulation : vérification…</p>
+              <button class="btn btn-secondary" type="button" data-action="prepare-story">Améliorer les 12 slides avec OpenAI</button>
+              <p class="empty-note">Cette étape est facultative. La génération gratuite fonctionne également sans IA.</p>
+            </section>
             <section class="generate-card">
               <div>
                 <h3>${state.project.slidesUrl ? 'Votre Pitch Deck Standard est généré' : 'Générer votre Pitch Deck Standard'}</h3>
@@ -2071,7 +2078,7 @@ function bindLandingEvents() {
               </div>
               <div>
                 ${state.project.slidesUrl
-                  ? '<button class="btn btn-secondary" data-action="edit-project">Modifier mes réponses</button>'
+                  ? '<button class="btn btn-secondary" data-action="edit-project">Modifier mes réponses</button><button class="btn btn-primary" data-action="generate-deck">Régénérer le deck</button>'
                   : '<button class="btn btn-primary btn-large" data-action="generate-deck">Générer maintenant</button>'}
               </div>
             </section>
@@ -2109,6 +2116,60 @@ function bindLandingEvents() {
     });
     const generate = document.querySelector('[data-action="generate-deck"]');
     if (generate) generate.addEventListener('click', generateDeck);
+    const ai = document.querySelector('[data-action="prepare-story"]');
+    if (ai) ai.addEventListener('click', preparePitchStory_);
+    refreshPitchStoryStatus_();
+  }
+
+  async function refreshPitchStoryStatus_() {
+    if(!state.project || !state.token) return;
+    const projectId=state.project.projectId;
+    const view=document.getElementById('ag24-story-status');
+    if(!view)return;
+    try {
+      const result=unwrap(await callServer('apiPitchNarrativeStatus',projectId,state.token));
+      if(!state.project || state.project.projectId!==projectId)return;
+      const node=document.getElementById('ag24-story-status');
+      if(!node)return;
+      node.textContent=result.status==='READY'?
+        'Reformulation prête : elle sera utilisée lors de la prochaine génération du deck.':
+        result.status==='RUNNING'?'Reformulation en cours. Attendez la fin avant de générer.':
+        result.status==='UNAVAILABLE'?'OpenAI n’est pas configuré. Le deck standard reste disponible.':
+        'Aucune reformulation valide pour les réponses actuelles. Vous pouvez la préparer ou générer sans IA.';
+    } catch(error) {
+      const node=document.getElementById('ag24-story-status');
+      if(node)node.textContent='Statut OpenAI indisponible. La génération standard reste possible.';
+    }
+  }
+
+  async function preparePitchStory_() {
+    if(!state.project || !state.token)return;
+    // Explicit opt-in before sending user questionnaire text to OpenAI.
+    if(!window.confirm('Autoriser l’envoi des réponses de ce projet à OpenAI pour reformuler les 12 slides ? Les réponses originales resteront inchangées.'))return;
+    const projectId=state.project.projectId;
+    const button=document.querySelector('[data-action="prepare-story"]');
+    if(button){button.disabled=true;button.textContent='Reformulation OpenAI…';}
+    try {
+      const result=unwrap(await callServer('apiPreparePitchNarrative',{
+        projectId:projectId,token:state.token,consent:true
+      }));
+      if(!state.project || state.project.projectId!==projectId)return;
+      if(result.status==='READY') {
+        showToast('Storytelling prêt',result.cached?
+          'Reformulation existante réutilisée. Régénérez votre deck pour en profiter.':
+          'Les 12 slides ont été reformulées. Régénérez votre deck pour utiliser cette version.',7000);
+      } else {
+        showToast('Reformulation à vérifier','Relancez la vérification avant de générer.',6000);
+      }
+      await refreshPitchStoryStatus_();
+    } catch(error) {
+      showToast('Reformulation indisponible',
+        'Le deck standard reste utilisable. '+(error&&error.message||''),7000);
+      await refreshPitchStoryStatus_();
+    } finally {
+      const current=document.querySelector('[data-action="prepare-story"]');
+      if(current){current.disabled=false;current.textContent='Améliorer les 12 slides avec OpenAI';}
+    }
   }
 
   async function generateDeck() {
