@@ -6,7 +6,8 @@ function AG24_PITCH_quality_(project) {
   const data=project&&project.data||{};
   const value=function(section,key){
     const v=data[section]&&data[section][key];
-    return String(v===undefined||v===null?'':v).trim();
+    const text=String(v===undefined||v===null?'':v).trim();
+    return /^(information à compléter|source requise|à préciser|n\/a)$/i.test(text)?'':text;
   };
   const issues=[];
   const add=function(code,section,level,message){
@@ -31,6 +32,10 @@ function AG24_PITCH_quality_(project) {
   }
   if(value('traction','tractionSummary')&&!value('traction','tractionEvidence')){
     add('TRACTION_UNSOURCED','traction','IMPORTANT','Résultats déclarés non étayés.');
+  }
+  const evidence=value('problem','problemEvidence');
+  if(evidence && evidence.length<25 && !/https?:|\d|facture|enquête|rapport|étude|entretien|contrat/i.test(evidence)) {
+    add('PROBLEM_EVIDENCE_VAGUE','problem','REVIEW','La preuve citée nécessite une référence exploitable.');
   }
   if(value('problem','problemDescription')&&!value('problem','problemEvidence')){
     add('PROBLEM_UNSOURCED','problem','IMPROVE','Problème décrit sans preuve.');
