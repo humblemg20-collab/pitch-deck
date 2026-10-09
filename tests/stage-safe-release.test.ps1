@@ -39,6 +39,7 @@ function stable() {
 }
 '@
   [IO.File]::WriteAllText((Join-Path $repo 'Api.js'),$original)
+  [IO.File]::WriteAllText((Join-Path $repo 'FastForward.js'),"function provenBase() { return 'base'; }"+[string][char]10)
   [IO.File]::WriteAllText((Join-Path $repo 'appsscript.json'),'{"runtimeVersion":"V8","dependencies":{}}')
   & git -C $repo add . | Out-Null
   & git -C $repo commit -m base | Out-Null
@@ -47,6 +48,7 @@ function stable() {
   & git -C $repo checkout -b $branch | Out-Null
   [IO.File]::WriteAllText((Join-Path $repo 'Api.js'),$feature)
   [IO.File]::WriteAllText((Join-Path $repo 'New.js'),'function brandNew() {}')
+  [IO.File]::WriteAllText((Join-Path $repo 'FastForward.js'),"function provenBase() { return 'feature'; }`n")
   [IO.File]::WriteAllText((Join-Path $repo 'appsscript.json'),'{"runtimeVersion":"V8","dependencies":{"services":[]}}')
   & git -C $repo add . | Out-Null
   & git -C $repo commit -m feature | Out-Null
@@ -54,6 +56,7 @@ function stable() {
   $head=(& git -C $repo rev-parse HEAD | Out-String).Trim()
 
   [IO.File]::WriteAllText((Join-Path $live 'Api.gs'),$liveChange)
+  [IO.File]::WriteAllText((Join-Path $live 'FastForward.gs'),([char]0xFEFF+'function provenBase() { return ''base''; }'+([string][char]13+[string][char]10)),[Text.Encoding]::UTF8)
   [IO.File]::WriteAllText((Join-Path $live 'Legacy.gs'),'function legacyKeepMe() {}')
   [IO.File]::WriteAllText((Join-Path $live 'PaymentApi.gs'),'function apiVerifyPitchAccess() {}')
   [IO.File]::WriteAllText((Join-Path $live 'App_Payment_Patch.html'),'<p>Legacy payment patch</p>')
@@ -93,6 +96,11 @@ function stable() {
   if (-not (Test-Path (Join-Path $payload 'Legacy.gs'))) {
     throw 'LIVE_ONLY_FILE_LOST'
   }
+  $ff=[IO.File]::ReadAllText((Join-Path $payload 'FastForward.gs'))
+  if ($ff -notmatch "'feature'" -or $ff -match "'base'") {
+    throw 'FAST_FORWARD_DID_NOT_USE_REVIEWED_GIT_CODE'
+  }
+  if ($manifest.fastForwardFiles -lt 1) {throw 'FAST_FORWARD_NOT_COUNTED'}
   if (-not (Test-Path (Join-Path $payload 'New.js'))) {
     throw 'NEW_FILE_NOT_STAGED'
   }
@@ -108,7 +116,7 @@ function stable() {
     throw ('BAD_STAGE_STATUS:'+$manifest.state)
   }
   $report=@(Import-Csv (Join-Path $releaseRoot 'release-impact.csv'))
-  foreach ($expected in @('LIVE_ONLY_PRESERVED','MERGED_CLEAN','NEW_STAGED',
+  foreach ($expected in @('LIVE_ONLY_PRESERVED','MERGED_CLEAN','MERGED_FAST_FORWARD','NEW_STAGED',
     'LIVE_MANIFEST_PRESERVED','RETIRED_MODULE_REMOVED')) {
     if (-not @($report | Where-Object {$_.Status -eq $expected}).Count) {
       throw ('MISSING_STAGE_CATEGORY:'+$expected)
