@@ -18,9 +18,13 @@ function generateStandardPresentation_(project) {
   // Optional approved AI copy: use only if exactly matched to current facts.
   // Never invokes OpenAI here; deterministic generation is always available.
   const narrativeUse = AG24_STORY_applyCached_(project,slidesContent);
+  const investorAudit = AG24_INVESTOR_plan_(project,slidesContent);
   logEvent_(project.projectId,'STORY_DECK_SOURCE',{
     mode:narrativeUse.used?'OPENAI_REFORMULATED':'DETERMINISTIC',status:narrativeUse.status,
-    runId:narrativeUse.runId||''
+    runId:narrativeUse.runId||'',planVersion:investorAudit.version,
+    layoutsAI:investorAudit.selectedAI,layoutsRejected:investorAudit.blockedLayouts,
+    weakFieldsRemoved:investorAudit.weakFieldsRemoved,
+    evidenceMissing:investorAudit.missingEvidence
   });
   const projectAssets = AG24_ASSET_imagesForGeneration_(project.projectId);
 
@@ -110,6 +114,12 @@ function createPremiumSlide_(
   applyPremiumCanvas_(slide);
 
   const type = ag24Text_(data.type).toLowerCase();
+
+  if(typeof AG24_INVESTOR_renderFocus_==='function' &&
+      AG24_INVESTOR_renderFocus_(slide,data)) {
+    addPremiumFooter_(slide,data.number||index+1,totalSlides,data.qualityLabel);
+    return slide;
+  }
 
   switch (type) {
     case 'cover':
