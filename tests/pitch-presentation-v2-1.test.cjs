@@ -42,3 +42,35 @@ test('renderer keeps typography legible and labels incomplete output as draft',(
  const assets=read('SlideAssets.js');
  assert.match(assets,/Math\.min\(targetWidth\/originalWidth,targetHeight\/originalHeight\)/);
 });
+
+test('render each of the 12 layouts using the real SlidesGenerator with a safe mock',()=>{
+ const f=engine({solution:{howItWorks:'Créer;Configurer;Livrer'},
+ market:{payingCustomer:'Clients entreprises',geography:'Dakar'},
+ traction:{users:5,pilots:'Pilote client'},
+ funding:{milestones:'10 clients',useOfFunds:'Matériel ; Équipe'}});
+ const ctx=f.c,words=[],fonts=[];
+ const textStyle={setFontFamily(){return this},setFontSize(n){fonts.push(n);return this},
+   setBold(){return this},setForegroundColor(){return this}};
+ const para={setParagraphAlignment(){}};
+ const shape=()=>({
+   getFill:()=>({setSolidFill(){}}),
+   getBorder:()=>({getLineFill:()=>({setSolidFill(){},setTransparent(){}}),setWeight(){}}),
+   getText:()=>({setText(){},getTextStyle:()=>textStyle,getParagraphStyle:()=>para}),
+   setContentAlignment(){}
+ });
+ const slide={
+   getBackground:()=>({setSolidFill(){}}),
+   insertShape:(type,x,y,w,h)=>{assert.ok(w>=0&&h>=0);return shape();},
+   insertTextBox:(value,x,y,w,h)=>{assert.ok(w>=0&&h>=0);words.push(String(value||''));return shape();}
+ };
+ ctx.SlidesApp={PredefinedLayout:{BLANK:'blank'},
+   ShapeType:{RECTANGLE:'rect',ROUND_RECTANGLE:'round',ELLIPSE:'circle'},
+   ParagraphAlignment:{START:'start',CENTER:'center',END:'end'},
+   ContentAlignment:{MIDDLE:'middle'}};
+ vm.runInContext(read('SlidesGenerator.js'),ctx);
+ f.slides.forEach((data,index)=>ctx.createPremiumSlide_({appendSlide:()=>slide},data,index,12));
+ assert.ok(words.length>35);
+ assert.ok(fonts.length>30&&fonts.every(n=>n>=9));
+ assert.ok(words.some(v=>v.includes('BROUILLON')));
+ assert.doesNotMatch(words.join(' '),/Information à compléter/);
+});
