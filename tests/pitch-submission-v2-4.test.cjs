@@ -123,7 +123,7 @@ test('no final submission if human approval is missing or material content chang
  assert.match(api,/if\(sectionId!=='review'\)/);
  assert.match(api,/investorSubmissionApproved=false/);
  assert.match(assets,/investorSubmissionApproved=false/);
- assert.match(api,/priorSection=project.data[sectionId]/);
+ assert.ok(api.includes('priorSection=project.data[sectionId]'));
  assert.match(api,/delete prior.investorSubmissionApproved/);
  assert.match(api,/investorSubmissionHash=AG24_SUBMISSION_signature_/);
 });
