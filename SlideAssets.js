@@ -18,7 +18,8 @@ function AG24_SLIDE_placeImage_(slide, slideData, assets) {
   let asset = null;
   let box = null;
   if (kind === 'cover') {
-    asset = AG24_SLIDE_selectAsset_(assets, ['COVER_HERO', 'LOGO']);
+    // Prefer a purpose-specific logo over a promotional flyer uploaded as hero.
+    asset = AG24_SLIDE_selectAsset_(assets, ['LOGO', 'COVER_HERO']);
     box = asset && asset.role === 'LOGO'
       ? [714, 95, 126, 128] : [668, 77, 218, 298];
   } else if (kind === 'solution') {
