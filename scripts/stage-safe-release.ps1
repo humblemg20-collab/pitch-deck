@@ -60,6 +60,10 @@ function Save-AG24-Blob([string]$Repo,[string]$Revision,[string]$Name,[string]$T
   Assert-AG24 ($process.ExitCode -eq 0) ('GIT_BLOB_FAILED:'+$Name+':'+$stderr)
   $process.Dispose()
 }
+function Get-AG24-NormalizedContent([string]$Path) {
+  $value=[IO.File]::ReadAllText($Path,[Text.Encoding]::UTF8)
+  return $value.TrimStart([char]0xFEFF).Replace(([string][char]13+[string][char]10),[string][char]10).Replace([string][char]13,[string][char]10).TrimEnd([char]10)
+}
 function Get-AG24-GlobalSymbols([string]$Text) {
   $matches = [regex]::Matches($Text,'(?m)^(?:function|const|let|var)[ \t]+([A-Za-z_$][A-Za-z0-9_$]*)[ \t]*(?:[=(]|$)')
   return @($matches | ForEach-Object {$_.Groups[1].Value})
@@ -153,6 +157,14 @@ foreach ($item in @($proposed.GetEnumerator() | Sort-Object Key)) {
   }
   $base = Join-Path $temp ($key.Replace(':','_')+'.base')
   Save-AG24-Blob $repo $BaseCommit $f.Name $base
+  # A live file identical to the reviewed base is a genuine fast-forward.
+  # clasp may write CRLF/BOM while git blobs have LF. Normalize these only
+  # for the equality decision, never during ordinary divergent 3-way merge.
+  if ((Get-AG24-NormalizedContent $old.FullName) -ceq (Get-AG24-NormalizedContent $base)) {
+    Copy-Item -LiteralPath $f.FullName -Destination $old.FullName -Force
+    $results.Add([pscustomobject]@{Status='MERGED_FAST_FORWARD';Identity=$key;Live=$old.Name;GitHub=$f.Name})
+    continue
+  }
   $candidate = Join-Path $temp ($key.Replace(':','_')+'.merged')
   Copy-Item -LiteralPath $old.FullName -Destination $candidate
   & git -C $repo merge-file -L LIVE -L BASE -L PROPOSED -- $candidate $base $f.FullName 2>&1 | Out-Null
@@ -160,7 +172,8 @@ foreach ($item in @($proposed.GetEnumerator() | Sort-Object Key)) {
   if ($exitCode -eq 0) {
     Copy-Item -LiteralPath $candidate -Destination $old.FullName -Force
     $results.Add([pscustomobject]@{Status='MERGED_CLEAN';Identity=$key;Live=$old.Name;GitHub=$f.Name})
-  } elseif ($exitCode -eq 1) {
+  } elseif ($exitCode -gt 0 -and $exitCode -le 127) {
+    # git merge-file returns the number of conflicting hunks, not merely 1.
     Copy-Item -LiteralPath $candidate -Destination (Join-Path $conflicts ($key.Replace(':','_')+'.conflict'))
     $results.Add([pscustomobject]@{Status='BLOCKED_MERGE_CONFLICT';Identity=$key;Live=$old.Name;GitHub=$f.Name})
   } else {
@@ -197,6 +210,7 @@ $collisionReport = Join-Path $releaseRoot 'global-symbol-collisions.txt'
 
 $csv = Join-Path $releaseRoot 'release-impact.csv'
 $results.ToArray() | Export-Csv -LiteralPath $csv -NoTypeInformation -Encoding UTF8
+$fastForwardCount=@($results | Where-Object Status -eq 'MERGED_FAST_FORWARD').Count
 $blocked = @($results | Where-Object {$_.Status -like 'BLOCKED_*'}).Count
 if ($collisions.Count -gt 0) {$blocked += $collisions.Count}
 $state = if ($blocked -gt 0) {'REQUIRES_RECONCILIATION'} else {'STAGED_FOR_REVIEW'}
@@ -209,6 +223,7 @@ $meta = [pscustomobject]@{
   preservedLiveOnly=@($results | Where-Object Status -eq 'LIVE_ONLY_PRESERVED').Count
   retiredModulesRemoved=@($results | Where-Object Status -eq 'RETIRED_MODULE_REMOVED').Count
   mergedClean=@($results | Where-Object Status -eq 'MERGED_CLEAN').Count
+  fastForwardFiles=$fastForwardCount
   newFiles=@($results | Where-Object Status -eq 'NEW_STAGED').Count
   blockedIssues=$blocked
   globalSymbolCollisions=$collisions.Count
@@ -221,6 +236,7 @@ foreach ($group in @($results | Group-Object Status | Sort-Object Name)) {
 }
 Write-Host ('GLOBAL_SYMBOL_COLLISIONS=' + $collisions.Count)
 Write-Host ('BLOCKING_ISSUES=' + $blocked)
+Write-Host ('FAST_FORWARD_FILES=' + $fastForwardCount)
 Write-Host ('STAGING_STATE=' + $state)
 Write-Host ('RELEASE_ROOT=' + $releaseRoot)
 Write-Host ('RELEASE_REPORT=' + $csv)
