@@ -23,6 +23,8 @@ function fixture(){
   ContentService:{MimeType:{JSON:'JSON'},createTextOutput:text=>({text,setMimeType(){return this;}})},
   cleanEmail_:s=>String(s).trim().toLowerCase(),cleanString_:(s,n)=>String(s||'').trim().slice(0,n),
   isValidEmail_:s=>s.includes('@')&&s.includes('.'),
+  getPrivateConfig_:()=>({webAppUrl:'https://script.google.com/macros/s/test/exec'}),
+  ScriptApp:{getService:()=>({getUrl:()=>''})},
   getDatabase_:()=>({getSheetByName:()=>sheet}),
   getProjectsSheet_:()=>({getDataRange:()=>({getValues:()=>[
    ['projectId'],...projects.map(p=>[p.projectId,p.email,p.projectName])
