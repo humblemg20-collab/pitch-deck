@@ -70,7 +70,7 @@ No raw access codes, tokens, base64, image blobs or PDF contents belong in logs.
 ## Deployment gate (not yet executed)
 
 - CI: `node --test tests/asset-engine.test.cjs` (isolated mocks + source contracts).
-- Apps Script smoke: backup current Properties and sheet headers, run `setupAfriGreen24PitchDeck()` only after confirming existing configuration; validate the `Assets` tab and previously generated project records.
+- Apps Script smoke: backup current Properties and sheet headers, run `setupAfriGreen24PitchDeck_()` only after confirming existing configuration; validate the `Assets` tab and previously generated project records.
 - With a free synthetic project, test upload, dedup, list, access denial, resume, delete, stale-deck invalidation, image placement and Slides/PDF viewing as the recipient.
 - Inject a Drive sharing failure and verify that the canonical output URLs remain unchanged.
 - Review Drive root permissions and sharing policies (Drive may inherit access from parent folders).

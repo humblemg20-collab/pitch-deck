@@ -51,7 +51,7 @@ OpenAI propose uniquement des valeurs qualitatives provenant du document.
 - Modèle configuré avec accès API autorisé ; aucun secret ne doit être transmis au navigateur.
 - Accès Drive, Sheets, UrlFetchApp et Slides permis aux exécutions.
 - Schéma `ImportRuns` créé sans destruction des données existantes.
-- E-mails et permissions Drive testés sous le rôle réel du payeur.
+- E-mails et permissions Drive testés sous le rôle réel du porteur de projet.
 
 ### Tests d'intégration avant fusion de la PR
 
@@ -66,7 +66,7 @@ OpenAI propose uniquement des valeurs qualitatives provenant du document.
 - [ ] Confirmer qu'une réponse humaine préexistante ne change jamais.
 - [ ] Faire échouer volontairement l'appel OpenAI ; aucun champ ne doit être modifié.
 - [ ] Contrôler les rapports d'audit et l'absence de PII dans les logs.
-- [ ] Générer 12 slides + 1 PDF sans doublon et vérifier les permissions payeur.
+- [ ] Générer 12 slides + 1 PDF sans doublon et vérifier les permissions du porteur de projet.
 - [ ] Simuler un échec de génération puis valider rollback et reprise.
 
 ## Limites connues

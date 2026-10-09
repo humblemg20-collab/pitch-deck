@@ -1044,7 +1044,7 @@
               </p>
 
               <ul>
-                <li>Création gratuite sans code d'achat</li>
+                <li>Un espace gratuit et un code privé de reprise</li>
                 <li>Sauvegarde automatique de votre progression</li>
                 <li>Lien privé pour reprendre votre projet</li>
               </ul>
@@ -1873,7 +1873,7 @@ function bindLandingEvents() {
     if (copy) copy.addEventListener('click', async () => {
       const resumeUrl = state.resumeUrl || buildResumeUrl();
       if (!resumeUrl) {
-        showToast('Lien indisponible', 'Redéployez l’application Web puis relancez la fonction setupAfriGreen24PitchDeck().', 6500);
+        showToast('Lien indisponible', 'Redéployez l’application Web puis relancez la fonction setupAfriGreen24PitchDeck_().', 6500);
         return;
       }
       state.resumeUrl = resumeUrl;

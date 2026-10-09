@@ -1,6 +1,6 @@
 /**
  * Configuration centrale AfriGreen24 Pitch Deck Standard.
- * Les identifiants créés par setupAfriGreen24PitchDeck() sont enregistrés
+ * Les identifiants créés par setupAfriGreen24PitchDeck_() sont enregistrés
  * dans les propriétés du script, pas dans le code.
  */
 const AG24_CONFIG = Object.freeze({
