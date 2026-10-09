@@ -52,7 +52,7 @@ function generateStandardPresentation_(project) {
 
     slidesContent.forEach(function(slideData, index) {
       slideData._hasFounderAsset = !!AG24_SLIDE_selectAsset_(projectAssets, ['FOUNDER', 'TEAM']);
-      slideData._coverAssetRole = (AG24_SLIDE_selectAsset_(projectAssets, ['COVER_HERO', 'LOGO']) || {}).role || '';
+      slideData._coverAssetRole = (AG24_SLIDE_selectAsset_(projectAssets, ['LOGO']) || {}).role || '';
       const slide = createPremiumSlide_(
         presentation,
         slideData || {},
