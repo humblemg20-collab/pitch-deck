@@ -16,7 +16,7 @@ OpenAI propose uniquement des valeurs qualitatives provenant du document.
 
 ## Séquence
 
-1. Client payé reprend son projet avec les identifiants existants.
+1. Le porteur de projet reprend son projet avec les identifiants existants.
 2. Il charge un document PDF/DOC/DOCX (max 8 Mio).
 3. Le document est stocké en Drive privé avec un rôle `SOURCE_DOCUMENT`.
 4. Sur demande explicite, le backend vérifie `projectId + token + assetId` et un budget de 3 tentatives par document.

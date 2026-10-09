@@ -3,22 +3,18 @@
  * SlidesGenerator.gs — Premium Design V2
  */
 
-function generateStandardPresentation(project) {
-  return generateStandardPresentation_(project);
-}
-
 function generateStandardPresentation_(project) {
   if (!project) {
     throw new Error('Projet introuvable pour la génération du Pitch Deck.');
   }
 
-  if (typeof buildStandardDeckContent !== 'function') {
+  if (typeof buildStandardDeckContent_ !== 'function') {
     throw new Error(
-      'La fonction buildStandardDeckContent(project) est introuvable dans ContentBuilder.gs.'
+      'La fonction buildStandardDeckContent_(project) est introuvable dans ContentBuilder.gs.'
     );
   }
 
-  const slidesContent = buildStandardDeckContent(project);
+  const slidesContent = buildStandardDeckContent_(project);
   const projectAssets = AG24_ASSET_imagesForGeneration_(project.projectId);
 
   if (!Array.isArray(slidesContent) || !slidesContent.length) {
@@ -1465,7 +1461,7 @@ function getAg24ErrorMessage_(error) {
   return String(error);
 }
 
-function authorizeSlidesCreation() {
+function authorizeSlidesCreation_() {
   const presentation = SlidesApp.create(
     'TEST AUTORISATION AFRIGREEN24'
   );

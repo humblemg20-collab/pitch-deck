@@ -12,16 +12,16 @@ function doGet(e) {
 );
 }
 
-function include(filename) {
+function include_(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
 /**
  * Test rapide depuis l'éditeur Apps Script après installation.
  */
-function testInstallation() {
-  const status = getInstallationStatus();
-  if (!status.installed) throw new Error('Exécutez setupAfriGreen24PitchDeck() avant ce test.');
+function testInstallation_() {
+  const status = getInstallationStatus_();
+  if (!status.installed) throw new Error('Exécutez setupAfriGreen24PitchDeck_() avant ce test.');
   return {
     status: status,
     schemaSections: getQuestionnaireSchema_().length,

@@ -1,4 +1,4 @@
-function createDemoProjectForTesting() {
+function createDemoProjectForTesting_() {
   const input = {
     email: Session.getEffectiveUser().getEmail() || 'demo@example.com',
     projectName: 'SolarFresh Africa',

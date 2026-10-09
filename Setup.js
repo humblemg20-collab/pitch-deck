@@ -2,7 +2,7 @@
  * À exécuter une seule fois depuis l'éditeur Apps Script.
  * Crée la base Sheets et le dossier Drive racine.
  */
-function setupAfriGreen24PitchDeck() {
+function setupAfriGreen24PitchDeck_() {
   return withScriptLock_(function() {
     const props = PropertiesService.getScriptProperties();
     const current = props.getProperties();
@@ -75,13 +75,13 @@ function writeSetting_(key, value) {
   else sheet.appendRow(row);
 }
 
-function setAfriGreen24SupportEmail(email) {
+function setAfriGreen24SupportEmail_(email) {
   if (email && !isValidEmail_(email)) throw new Error('Adresse e-mail invalide.');
   PropertiesService.getScriptProperties().setProperty('AG24_SUPPORT_EMAIL', cleanEmail_(email));
   return { success: true, supportEmail: cleanEmail_(email) };
 }
 
-function getInstallationStatus() {
+function getInstallationStatus_() {
   const config = getPrivateConfig_();
   return {
     installed: Boolean(config.databaseSpreadsheetId && config.rootFolderId),
@@ -120,7 +120,9 @@ function setupLeadsSheet_() {
   }
 
   return sheet;
-}function getAg24LeadsSpreadsheet_() {
+}
+
+function getAg24LeadsSpreadsheet_() {
   const spreadsheetId =
     AG24_CONFIG.SPREADSHEET_ID ||
     AG24_CONFIG.DATABASE_SPREADSHEET_ID ||
@@ -135,7 +137,7 @@ function setupLeadsSheet_() {
 
   return SpreadsheetApp.openById(spreadsheetId);
 }
-function installLeadsSheet() {
+function installLeadsSheet_() {
   const sheet = setupLeadsSheet_();
 
   return {
