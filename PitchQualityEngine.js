@@ -7,7 +7,7 @@ function AG24_PITCH_quality_(project) {
   const value=function(section,key){
     const v=data[section]&&data[section][key];
     const text=String(v===undefined||v===null?'':v).trim();
-    return /^(information à compléter|source requise|à préciser|n\/a)$/i.test(text)?'':text;
+    return /^(information à compléter|source requise|preuves? à préciser|potentiel de marché à quantifier|compétences? à renforcer non précisées?|à préciser|n\/a)$/i.test(text)?'':text;
   };
   const issues=[];
   const add=function(code,section,level,message){
@@ -52,6 +52,14 @@ function AG24_PITCH_quality_(project) {
   });
   if(Object.keys(frequencies).some(function(k){return frequencies[k]>=3;})){
     add('REPEATED_NARRATIVE','review','IMPORTANT','Plusieurs réponses reproduisent le même texte.');
+  }
+  const status=value('solution','currentStatus');
+  if(status && !/(?:idéation|idée|prototype|pilote|test|en cours|lancement|commercialis|opérationnel|production|déploiement|bêta|beta|mvp|activité)/i.test(status)){
+    add('SOLUTION_STAGE_AMBIGUOUS','solution','REVIEW','Le stade déclaré décrit un bénéfice plutôt qu’un avancement vérifiable.');
+  }
+  const pricing=value('businessModel','pricing');
+  if(pricing && /^\s*[\d\s.,]+\s*$/.test(pricing)){
+    add('PRICE_CURRENCY_MISSING','businessModel','REVIEW','La tarification ne mentionne aucune devise ni unité.');
   }
   const geo=value('market','geography');
   if(/\b(?:Agriculture|Agroalimentaire|Energie|Énergie|Technologie|Fintech|Logistique|Immobilier)\b/i.test(geo)){
