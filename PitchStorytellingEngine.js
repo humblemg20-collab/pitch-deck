@@ -150,7 +150,7 @@ function AG24_STORY_failureDetail_(run) {
   if(!run || run.status!=='FAILED')return null;
   const raw=String(run.errorCode||'');
   // Only known closed-form diagnostic codes may cross the authenticated API.
-  const allowed=/^(?:STORY_OPENAI_HTTP_\d{3}|STORY_OPENAI_(?:NETWORK_FAILURE|INCOMPLETE|INVALID_RESPONSE)|STORY_(?:SCHEMA_[A-Z_]+|TEXT_TOO_LONG|UNEXPECTED_FIELD|UNSUPPORTED_NUMBER|UNSUPPORTED_CLAIM|UNSAFE_COPY|INTERNAL_ERROR))$/;
+  const allowed=/^(?:STORY_OPENAI_HTTP_\d{3}|STORY_OPENAI_(?:NETWORK_FAILURE|INCOMPLETE|INVALID_RESPONSE)|STORY_(?:SCHEMA_[A-Z_]+|TEXT_TOO_LONG|NO_USABLE_EDITS|UNEXPECTED_FIELD|UNSUPPORTED_NUMBER|UNSUPPORTED_CLAIM|UNSAFE_COPY|INTERNAL_ERROR))$/;
   const code=allowed.test(raw)?raw:'STORY_INTERNAL_ERROR';
   let category='TECHNICAL',message='GreenIN AI a rencontré une difficulté technique.',
     nextAction='Contactez le support en indiquant le code affiché.';
@@ -174,9 +174,11 @@ function AG24_STORY_failureDetail_(run) {
     category='TRANSIENT';
     message='La connexion au fournisseur technique a échoué ou son service est indisponible.';
     nextAction='Réessayez plus tard. Le générateur standard reste disponible.';
-  } else if(/^STORY_OPENAI_INCOMPLETE$|^STORY_OPENAI_INVALID_RESPONSE$/.test(code)){
+  } else if(/^STORY_OPENAI_INCOMPLETE$|^STORY_OPENAI_INVALID_RESPONSE$|^STORY_NO_USABLE_EDITS$/.test(code)){
     category='MODEL_OUTPUT';
-    message='GreenIN AI n’a pas reçu une réponse complète et structurée.';
+    message=code==='STORY_NO_USABLE_EDITS'?
+      'GreenIN AI n’a proposé aucun texte assez court pour la présentation.':
+      'GreenIN AI n’a pas reçu une réponse complète et structurée.';
     nextAction='Réessayez plus tard. Si le problème se répète, contactez le support.';
   } else if(/^STORY_(?:SCHEMA_[A-Z_]+|TEXT_TOO_LONG|UNEXPECTED_FIELD|UNSUPPORTED_NUMBER|UNSUPPORTED_CLAIM|UNSAFE_COPY)$/.test(code)){
     category='QUALITY_REJECTED';
