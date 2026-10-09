@@ -19,7 +19,7 @@ OpenAI propose uniquement des valeurs qualitatives provenant du document.
 1. Le porteur de projet reprend son projet avec les identifiants existants.
 2. Il charge un document PDF/DOC/DOCX (max 8 Mio).
 3. Le document est stocké en Drive privé avec un rôle `SOURCE_DOCUMENT`.
-4. Sur demande explicite, le backend vérifie `projectId + token + assetId` et un budget de 3 tentatives par document.
+4. Sur demande explicite (`consent: true` vérifié côté serveur et événement `IMPORT_STARTED` journalisé), le backend vérifie `projectId + token + assetId` et un budget de 3 tentatives par document.
 5. Le serveur réserve un `ImportRun: RUNNING` sous verrou. Aucun réseau sous ce verrou.
 6. Un seul appel `POST /v1/responses` avec `input_file` base64, `store: false` et `text.format` JSON Schema strict.
 7. Les suggestions sont limitées à des champs autorisés de `getQuestionnaireSchema_()`, avec valeur, indice de preuve et confiance. Les suggestions invalides sont rejetées.

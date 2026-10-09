@@ -251,6 +251,8 @@ function apiAnalyzeProjectDocument(input) {
     const projectId=cleanString_(input&&input.projectId,100);
     const token=cleanString_(input&&input.token,100);
     const assetId=cleanString_(input&&input.assetId,100);
+    // Consent is mandatory on the server, not merely a front-end confirmation.
+    if (!input || input.consent !== true) throw new Error('OPENAI_CONSENT_REQUIRED');
     const cfg=AG24_IMPORT_config_();
     if (!cfg.configured) throw new Error('OpenAI non configuré côté serveur.');
     const task=withScriptLock_(function() {
@@ -283,7 +285,8 @@ function apiAnalyzeProjectDocument(input) {
         run.createdAt,run.updatedAt
       ]);
       logEvent_(project.projectId,'IMPORT_STARTED',{
-        importId:run.importId,assetId:asset.assetId,provider:'OPENAI'
+        importId:run.importId,assetId:asset.assetId,provider:'OPENAI',
+        consent:true,sourceSha256:asset.sha256
       });
       return {run:run,asset:asset,cached:false};
     });

@@ -1620,7 +1620,8 @@ function bindLandingEvents() {
             throw new Error('OpenAI non configuré côté serveur. Contactez AfriGreen24.');
           }
           const result = unwrap(await callServer('apiAnalyzeProjectDocument',{
-            projectId:state.project.projectId,token:state.token,assetId:assetId
+            projectId:state.project.projectId,token:state.token,assetId:assetId,
+            consent:true
           }));
           await refreshProjectAssets();
           if (result.import && (result.import.status === 'READY' ||

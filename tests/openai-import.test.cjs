@@ -184,3 +184,12 @@ test('Unauthorized project or unapproved path never changes data',()=>{
   assert.equal(f.project.data.identity.tagline,undefined);
   assert.equal(f.sheet.rows[1][4],'READY');
 });
+
+
+test('OpenAI import requires explicit server-side document consent',()=>{
+  const f=setup();
+  const denied=f.ctx.apiAnalyzeProjectDocument({projectId:'PITCH-1',token:'secret',assetId:'ASSET-1'});
+  assert.equal(denied.ok,false);
+  assert.match(String(denied.error),'OPENAI_CONSENT_REQUIRED');
+  assert.equal(f.requests.length,0);
+});

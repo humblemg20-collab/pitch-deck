@@ -34,10 +34,18 @@ function enforceCreationLimit_(email) {
   const rows = getProjectsSheet_().getDataRange().getValues();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const count = rows.slice(1).filter(function(row) {
-    const sameEmail = cleanEmail_(row[1]) === cleanEmail_(email);
+  const rowsToday = rows.slice(1).filter(function(row) {
     const created = row[10] ? new Date(row[10]) : new Date(0);
-    return sameEmail && created >= today;
+    return created >= today;
+  });
+  // Protect the anonymous, free service from rotating-email quota exhaustion.
+  // Deliberate operational cap: changes require a reviewed code/config change.
+  const maxDaily = AG24_CONFIG.MAX_TOTAL_PROJECTS_PER_DAY;
+  if (rowsToday.length >= maxDaily) {
+    throw new Error('Capacité quotidienne atteinte. Veuillez réessayer demain.');
+  }
+  const count = rowsToday.filter(function(row) {
+    return cleanEmail_(row[1]) === cleanEmail_(email);
   }).length;
   if (count >= AG24_CONFIG.MAX_PROJECTS_PER_EMAIL_PER_DAY) {
     throw new Error('La limite quotidienne de création de projets a été atteinte pour cette adresse e-mail.');
