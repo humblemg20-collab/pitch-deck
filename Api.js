@@ -189,6 +189,10 @@ function apiGenerateStandardDeck(projectId, token) {
       const declaration = normalizeBoolean_(getByPath_(project.data, 'review.declaration'));
       if (!declaration) throw new Error('Confirmez la déclaration de sincérité avant de générer le deck.');
       if (!cleanString_(project.projectName)) throw new Error('Le nom du projet est obligatoire.');
+      const presentationQuality = AG24_PITCH_quality_(project);
+      logEvent_(project.projectId,'PRESENTATION_QUALITY_GATE',{
+        state:presentationQuality.state,issueCodes:presentationQuality.issues.map(function(item){return item.code;})
+      });
 
       let presentation = null;
       let pdf = null;
@@ -219,7 +223,7 @@ function apiGenerateStandardDeck(projectId, token) {
         pdfUrl: project.pdfUrl
       });
       sendDeckGeneratedEmail_(project);
-      return { project: publicProject_(project) };
+      return { project: publicProject_(project),presentationQuality:presentationQuality };
     });
   });
 }
