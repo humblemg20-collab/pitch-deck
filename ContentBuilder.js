@@ -27,7 +27,7 @@ function buildStandardDeckContent_(project) {
       subtitle:value(identity.tagline||solution.valueProposition,155),
       meta:[identity.sector,identity.country,identity.stage].map(function(x){return value(x,40);}).filter(Boolean).join(' • ')},
     {type:'statement',number:2,eyebrow:'LE PROBLÈME',
-      title:value(problem.problemDescription,240)||'Le besoin à résoudre',
+      title:AG24_PITCH_completeCopy_(problem.problemDescription,240,true)||'Le besoin à résoudre',
       body:value(problem.consequences,210),
       sideLabel:'PERSONNES CONCERNÉES',sideValue:value(problem.targetUser,150),
       proof:value(problem.problemEvidence,170)},
@@ -56,7 +56,7 @@ function buildStandardDeckContent_(project) {
       metrics:buildTractionMetrics_(traction),
       evidence:value(traction.tractionEvidence,170)},
     {type:'competition',number:9,eyebrow:'DIFFÉRENCIATION',
-      title:'Positionnement concurrentiel',advantage:value(market.advantage,120),
+      title:'Positionnement concurrentiel',advantage:AG24_PITCH_completeCopy_(market.advantage,290,false),
       competitors:list(market.competitors,5)},
     {type:'goToMarket',number:10,eyebrow:'FEUILLE DE ROUTE',
       title:value(model.acquisition,120)||'Stratégie de développement',
@@ -79,6 +79,39 @@ function buildStandardDeckContent_(project) {
   });
   return slides;
 }
+/**
+ * Editorial headline excerpt for slides 2/9 only.
+ * Never use truncate_ on a sentence: truncate_ appends a period to a broken
+ * word, which is then rendered as an unfinished phrase in the PDF.
+ *
+ * Short passages are kept whole. When a longer statement has a complete first
+ * sentence, prefer that sentence rather than cutting another one in half.
+ * If no meaningful boundary exists, preserve the source and let the existing
+ * adaptive typography fit it. This is presentation-only: project.data stays
+ * canonical and unchanged.
+ */
+function AG24_PITCH_completeCopy_(raw,maxChars,preferFirstSentence) {
+  const text=String(raw===null||raw===undefined?'':raw).replace(/\s+/g,' ').trim();
+  if(!text || /^(?:information à compléter|source requise|à préciser|n\/a)$/i.test(text)) return '';
+  const sentence=/[.!?](?=\s|$)/g;
+  const first=sentence.exec(text);
+  // A full sentence is a better pitch headline than half of two sentences.
+  if(preferFirstSentence && first && first.index+1<=maxChars) {
+    return text.slice(0,first.index+1);
+  }
+  if(text.length<=maxChars) return text;
+  // Preserve the longest *complete* sentence within the natural text budget.
+  sentence.lastIndex=0;
+  let boundary=-1, match;
+  while((match=sentence.exec(text))!==null) {
+    if(match.index+1>maxChars) break;
+    boundary=match.index+1;
+  }
+  if(boundary>0)return text.slice(0,boundary).trim();
+  // No complete sentence fits: never manufacture a partial clause.
+  return text;
+}
+
 function ensureItems_(items,minimum,fallback) {
   return (items||[]).map(function(x){return String(x||'').trim();}).filter(Boolean);
 }
