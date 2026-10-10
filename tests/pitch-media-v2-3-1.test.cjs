@@ -94,7 +94,7 @@ test('image contain layout preserves landscape, portrait and square ratios witho
  }
  assert.ok(placed.w>0);
 });
-test('approved media uses editorial split, leaves text and caption outside image area',()=>{
+test('approved media uses editorial split without operational asset captions',()=>{
  const f=fixture(['ASSET-03']);
  f.ctx.AG24_MEDIA_plan_(f.project,f.slides,f.assets);
  const texts=[];
@@ -104,10 +104,7 @@ test('approved media uses editorial split, leaves text and caption outside image
  const left=texts.filter(t=>t.x===54);
  assert.ok(left.length>=3);
  assert.ok(left.every(t=>t.x+t.w<image[0]));
- const caption=texts.find(t=>t.txt.includes('VISUEL FOURNI'));
- assert.ok(caption);
- assert.ok(caption.y>=image[1]+image[3]);
- assert.ok(caption.y+caption.h<420);
+ assert.ok(texts.every(t=>!t.txt.includes('VISUEL FOURNI')));
 });
 test('owner approval is authenticated, idempotent and stored only in project data',()=>{
  const f=fixture([]);
@@ -150,5 +147,5 @@ test('user must confirm image relevance; UI exposes approval and revoke',()=>{
  assert.match(engine,/AG24_ASSET_invalidateDeck_\(project\)/);
  assert.match(slides,/AG24_MEDIA_plan_\(project,slidesContent,projectAssets\)/);
  assert.match(slides,/AG24_MEDIA_render_\(slide,data\)/);
- assert.match(read('PitchMediaLayout.js'),/VISUEL FOURNI ET SÉLECTIONNÉ PAR LE PORTEUR/);
+ assert.doesNotMatch(read('PitchMediaLayout.js'),/VISUEL FOURNI ET SÉLECTIONNÉ PAR LE PORTEUR/);
 });

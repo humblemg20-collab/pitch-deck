@@ -33,10 +33,11 @@ test('narrative builds twelve sections without inventing empty steps, competitor
  assert.equal(f.slides[11].uses.length,0);
  assert.doesNotMatch(JSON.stringify(f.slides),/Information à compléter|Source requise/);
 });
-test('renderer keeps typography legible and labels incomplete output as draft',()=>{
+test('renderer keeps typography legible and excludes draft instructions from the PDF',()=>{
  const s=read('SlidesGenerator.js');
  assert.match(s,/function createInsightSlide_/);
- assert.match(s,/qualityLabel \+ ' • DONNÉES À VÉRIFIER'/);
+ assert.match(s,/function AG24_LAYOUT_font_/);
+  assert.doesNotMatch(s,/qualityLabel \+ ' • DONNÉES À VÉRIFIER'/);
  assert.match(s,/Math\.max\(9, Number\(value \|\| 14\) \* 0\.86\)/);
  assert.doesNotMatch(s,/result\.push\('Information à compléter'\)/);
  const assets=read('SlideAssets.js');
@@ -71,6 +72,6 @@ test('render each of the 12 layouts using the real SlidesGenerator with a safe m
  f.slides.forEach((data,index)=>ctx.createPremiumSlide_({appendSlide:()=>slide},data,index,12));
  assert.ok(words.length>35);
  assert.ok(fonts.length>30&&fonts.every(n=>n>=9));
- assert.ok(words.some(v=>v.includes('BROUILLON')));
+ assert.ok(words.every(v=>!v.includes('BROUILLON')&&!v.includes('DONNÉES À VÉRIFIER')));
  assert.doesNotMatch(words.join(' '),/Information à compléter/);
 });
