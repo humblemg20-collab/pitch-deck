@@ -118,8 +118,8 @@ function AG24_INVESTOR_plan_(project,slides) {
 function AG24_INVESTOR_renderFocus_(slide,data) {
   if(data.investorLayout!=='FOCUS' || Number(data.number)===1)return false;
   const t=getPremiumTheme_();
-  addSectionHeader_(slide,data.eyebrow,data.title);
   const n=Number(data.number);
+  addSectionHeader_(slide,data.eyebrow,n===12?'Financement recherché':data.title);
   let label='',primary='',secondary='',foot='';
   if(n===2) {
     label='CONSÉQUENCES DÉCLARÉES';
@@ -137,9 +137,9 @@ function AG24_INVESTOR_renderFocus_(slide,data) {
     secondary=AG24_INVESTOR_validStatus_(data.status);
     foot=secondary?'STADE DÉCLARÉ : '+secondary:'';
   } else if(n===5) {
-    label=data.submissionMode?'PARCOURS CLIENT':'PREMIÈRE ÉTAPE DOCUMENTÉE';
+    label='PARCOURS CLIENT';
     primary=(data.items||[])[0]||'';
-    foot=(data.items||[]).length===0?'Le parcours nécessite encore une description précise.':'';
+    foot='';
   } else if(n===6) {
     label=data.submissionMode?'ZONE COMMERCIALE':'CLIENTÈLE CIBLÉE';
     primary=data.submissionMode?AG24_INVESTOR_geography_(data.geography):AG24_INVESTOR_clean_(data.title);
@@ -154,15 +154,15 @@ function AG24_INVESTOR_renderFocus_(slide,data) {
     label='INDICATEUR DÉCLARÉ';
     const metric=(data.metrics||[])[0];
     primary=metric?(String(metric.value)+' — '+String(metric.label)):'';
-    foot=AG24_INVESTOR_evidence_(data.evidence)?'SOURCE FOURNIE DANS LE DOSSIER':'';
+    foot='';
   } else if(n===9) {
     label='DIFFÉRENCIATION PROPOSÉE';
-    primary=AG24_INVESTOR_clean_(data.title);
+    primary=AG24_INVESTOR_clean_(data.advantage);
     foot=(data.competitors||[]).length?'ALTERNATIVE CITÉE : '+data.competitors[0]:'';
   } else if(n===10) {
     label=data.submissionMode?'PROCHAIN JALON':'PROCHAIN JALON DÉCLARÉ';
     primary=(data.milestones||[])[0]||'';
-    foot=data.submissionMode?'':((data.milestones||[]).length?'OBJECTIF À VALIDER AVEC LE PORTEUR':'');
+    foot='';
   } else if(n===11) {
     label='PORTEUR / ÉQUIPE';
     primary=(data.founders||[])[0]||AG24_INVESTOR_clean_(data.skills);
@@ -173,17 +173,18 @@ function AG24_INVESTOR_renderFocus_(slide,data) {
     primary=data.submissionMode?(data.uses||[])[0]||'':AG24_INVESTOR_clean_(data.title);
     secondary=AG24_INVESTOR_clean_(data.subtitle);
     foot=data.submissionMode?'':((data.uses||[]).length>1?'POSTES DÉCLARÉS : '+data.uses.slice(0,2).join(' • '):
-      'Ventilation détaillée des fonds à présenter avant sollicitation.');
+      '');
   } else return false;
 
   const left=(n%2===0)?54:108;
   addTextBox_(slide,label,left,196,755,24,
     {fontSize:11,bold:true,color:t.green});
-  addTextBox_(slide,primary||'Information non documentée',
-    left,246,790-left+54,98,{fontSize:n===7||n===8||n===12?28:22,
+  addTextBox_(slide,primary||'',
+    left,237,790-left+54,185,{fontSize:n===7||n===8||n===12?28:22,
       bold:true,color:primary?t.white:t.muted});
-  if(foot) addTextBox_(slide,foot,left,367,780,36,
+  if(foot) addTextBox_(slide,foot,left,442,780,27,
     {fontSize:11,color:t.muted});
-  if(n===2||n===3)addSourceLine_(slide,data.proof,54,400,810);
+  if(n===2||n===3)addSourceLine_(slide,data.proof,54,470,810);
+  if(n===8)addSourceLine_(slide,data.evidence,54,470,810);
   return true;
 }

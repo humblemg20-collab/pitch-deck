@@ -164,7 +164,7 @@ test('both export modes remain distinct, and final mode is checked twice server-
  assert.match(read('PitchMediaLayout.js'),/PRÉSENTATION INVESTISSEUR/);
  assert.match(read('PitchSubmissionGate.js'),/readyForSubmission|READY_FOR_SUBMISSION/);
 });
-test('submission hides private labels and keeps page numbering, preview remains unchanged',()=>{
+test('both export modes suppress operational labels, submission also shows project identification',()=>{
  const source=read('SlidesGenerator.js');
  const ctx={
   ag24ScaleX_:x=>x*.75,ag24ScaleY_:y=>y*.75,
@@ -184,11 +184,11 @@ test('submission hides private labels and keeps page numbering, preview remains 
  assert.ok(textCalls.every(x=>!x.includes('BROUILLON')&&!x.includes('AfriGreen24 Pitch Studio')));
  textCalls=[];
  ctx.addPremiumFooter_(slide,1,12,'BROUILLON',false,'EcoCommerce');
- assert.ok(textCalls.some(x=>x.includes('BROUILLON')));
+ assert.ok(textCalls.every(x=>!x.includes('BROUILLON')&&!x.includes('AfriGreen24 Pitch Studio')));
 });
-test('investor media captions are presentation-only in preview',()=>{
+test('operational image captions are never printed but investor safety gate stays unchanged',()=>{
  const s=read('PitchMediaLayout.js');
- assert.match(s,/if\(!data\.submissionMode\) addTextBox_\(slide,'VISUEL FOURNI/);
+ assert.doesNotMatch(s,/if\(!data\.submissionMode\) addTextBox_\(slide,'VISUEL FOURNI/);
  const investor=read('PitchInvestorEngine.js');
  assert.match(investor,/foot=data\.submissionMode\?'':/);
  assert.match(investor,/UTILISATION PRIORITAIRE/);

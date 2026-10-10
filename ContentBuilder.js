@@ -27,7 +27,7 @@ function buildStandardDeckContent_(project) {
       subtitle:value(identity.tagline||solution.valueProposition,155),
       meta:[identity.sector,identity.country,identity.stage].map(function(x){return value(x,40);}).filter(Boolean).join(' • ')},
     {type:'statement',number:2,eyebrow:'LE PROBLÈME',
-      title:value(problem.problemDescription,135)||'Le besoin à résoudre',
+      title:value(problem.problemDescription,240)||'Le besoin à résoudre',
       body:value(problem.consequences,210),
       sideLabel:'PERSONNES CONCERNÉES',sideValue:value(problem.targetUser,150),
       proof:value(problem.problemEvidence,170)},
@@ -49,18 +49,18 @@ function buildStandardDeckContent_(project) {
       estimate:value(market.marketEstimate,160),source:value(market.marketSource,160)},
     {type:'business',number:7,eyebrow:'MODÈLE ÉCONOMIQUE',
       title:value(model.revenueModel,120)||'Notre modèle de revenus',
-      pricing:value(model.pricing,100),acquisition:value(model.acquisition,130),
+      pricing:value(model.pricing,260),acquisition:value(model.acquisition,230),
       revenue:revenue},
     {type:'traction',number:8,eyebrow:'TRACTION ET VALIDATION',
       title:value(traction.tractionSummary,120)||'Résultats observés',
       metrics:buildTractionMetrics_(traction),
       evidence:value(traction.tractionEvidence,170)},
     {type:'competition',number:9,eyebrow:'DIFFÉRENCIATION',
-      title:value(market.advantage,120)||'Notre avantage',
+      title:'Positionnement concurrentiel',advantage:value(market.advantage,120),
       competitors:list(market.competitors,5)},
     {type:'goToMarket',number:10,eyebrow:'FEUILLE DE ROUTE',
       title:value(model.acquisition,120)||'Stratégie de développement',
-      milestones:list(funding.milestones,4)},
+      milestones:list(funding.milestones,10)},
     {type:'team',number:11,eyebrow:'ÉQUIPE ET EXÉCUTION',
       title:'Les personnes derrière le projet',
       founders:list(team.founders,4),skills:value(team.keySkills,170),
@@ -85,9 +85,7 @@ function ensureItems_(items,minimum,fallback) {
 function buildTractionMetrics_(traction) {
   const metrics=[],users=cleanNumber_(traction.users);
   if(users>0)metrics.push({value:users.toLocaleString('fr-FR'),label:'utilisateurs / bénéficiaires déclarés'});
-  // Text paragraphs cannot be assumed to be signed contracts or pilots.
-  if(cleanString_(traction.pilots))metrics.push({value:'Pilotes',label:'Tests mentionnés par le porteur'});
-  if(cleanString_(traction.contracts))metrics.push({value:'Contrats',label:'Éléments déclarés — à vérifier'});
-  if(cleanString_(traction.partnerships))metrics.push({value:'Partenariats',label:'Partenariats déclarés'});
+  // Text-only pilots/contracts are not metrics. Keep their wording in canonical
+  // project data, and never turn them into artificial quantities on the deck.
   return metrics.slice(0,3);
 }

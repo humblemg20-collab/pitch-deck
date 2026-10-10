@@ -70,7 +70,7 @@ function AG24_MEDIA_render_(slide,data) {
   const theme=getPremiumTheme_();
   const kind=String(data.type||'').toLowerCase();
   if(kind==='cover'){
-    addTextBox_(slide,data.submissionMode?'PRÉSENTATION INVESTISSEUR':'AFRIGREEN24  /  INVESTOR PRESENTATION',54,45,410,28,
+    addTextBox_(slide,data.submissionMode?'PRÉSENTATION INVESTISSEUR':'AFRIGREEN24 / PRÉSENTATION DE PROJET',54,45,410,28,
       {fontSize:11,bold:true,color:theme.green});
     addTextBox_(slide,ag24Text_(data.title,'Projet sans nom'),
       54,118,405,135,{fontSize:34,bold:true,color:theme.white});
@@ -103,8 +103,6 @@ function AG24_MEDIA_render_(slide,data) {
     {fontSize:17,color:theme.text,bold:kind==='traction'});
   if(label)addTextBox_(slide,label,54,346,412,62,
     {fontSize:12,color:theme.muted});
-  // Explicit disclosure: user-tagged image does not itself certify a result.
-  if(!data.submissionMode) addTextBox_(slide,'VISUEL FOURNI ET SÉLECTIONNÉ PAR LE PORTEUR',
-    489,394,421,20,{fontSize:9,color:theme.muted});
+  // UI retains media provenance; do not print operational captions on slides.
   return true;
 }

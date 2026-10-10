@@ -106,6 +106,7 @@ function generateStandardPresentation_(project, options) {
         '/edit',
       fileName: presentationName,
       slideCount: slidesContent.length,
+      layoutVersion:'pitch_layout_v2_5_0',
       generatedAt: new Date().toISOString()
     };
 
@@ -275,7 +276,7 @@ function applyPremiumCanvas_(slide) {
 
 function createCoverSlide_(slide, data) {
   const theme=getPremiumTheme_();
-  addTextBox_(slide,data.submissionMode?'PRÉSENTATION INVESTISSEUR':'AFRIGREEN24  /  INVESTOR PRESENTATION',54,47,525,26,
+  addTextBox_(slide,data.submissionMode?'PRÉSENTATION INVESTISSEUR':'AFRIGREEN24 / PRÉSENTATION DE PROJET',54,47,525,26,
     {fontSize:11,bold:true,color:theme.green});
   addTextBox_(slide,ag24Text_(data.title,'Projet sans nom'),54,103,540,128,
     {fontSize:40,bold:true,color:theme.white});
@@ -289,40 +290,27 @@ function createCoverSlide_(slide, data) {
   }
   // The right panel is a deliberate hero area, not fake proof or a stock photo.
   addPanel_(slide,654,67,246,324,theme.panelAlt);
-  if(!data._coverAssetRole) {
-    addTextBox_(slide,'AG24',682,130,188,76,
-      {fontSize:46,bold:true,color:theme.green,
-       align:SlidesApp.ParagraphAlignment.CENTER});
-    addTextBox_(slide,'PITCH STUDIO',682,225,188,32,
-      {fontSize:17,bold:true,color:theme.white,
-       align:SlidesApp.ParagraphAlignment.CENTER});
-    addTextBox_(slide,'12 SECTIONS  ·  1 VISION',672,305,206,27,
-      {fontSize:11,color:theme.muted,
-       align:SlidesApp.ParagraphAlignment.CENTER});
-  } else if(data._coverAssetRole==='LOGO') {
-    addTextBox_(slide,'PITCH STUDIO',676,284,201,35,
-      {fontSize:16,bold:true,color:theme.white,
-       align:SlidesApp.ParagraphAlignment.CENTER});
-  }
+  // No filler copy in the cover hero area.
 }
 
 function createStatementSlide_(slide,data) {
-  const theme=getPremiumTheme_();
+  const t=getPremiumTheme_();
   addSectionHeader_(slide,data.eyebrow,data.title);
-  if(ag24Text_(data.body)) {
-    addPanel_(slide,54,190,560,170,theme.panel);
-    addTextBox_(slide,data.body,78,218,512,116,
-      {fontSize:17,color:theme.text});
+  const side=ag24Text_(data.sideValue);
+  const leftWidth=side?560:846;
+  if(ag24Text_(data.body)){
+    addPanel_(slide,54,190,leftWidth,245,t.panel);
+    addTextBox_(slide,data.body,78,214,leftWidth-48,198,{fontSize:18,color:t.text});
   }
-  if(ag24Text_(data.sideValue)) {
-    addPanel_(slide,642,190,258,170,theme.panelAlt);
-    addTextBox_(slide,ag24Text_(data.sideLabel,'PUBLIC VISÉ').toUpperCase(),
-      666,216,210,18,{fontSize:10,bold:true,color:theme.green});
-    addTextBox_(slide,data.sideValue,666,252,210,83,
-      {fontSize:17,bold:true,color:theme.white});
+  if(side){
+    addPanel_(slide,642,190,258,245,t.panelAlt);
+    addTextBox_(slide,ag24Text_(data.sideLabel,'PUBLIC CONCERNÉ').toUpperCase(),666,214,210,24,
+      {fontSize:10,bold:true,color:t.green});
+    addTextBox_(slide,side,666,248,210,164,{fontSize:17,bold:true,color:t.white});
   }
-  addSourceLine_(slide,data.proof,54,386,846);
+  addSourceLine_(slide,data.proof,54,457,846);
 }
+
 function createInsightSlide_(slide,data) {
   const theme=getPremiumTheme_();
   addTextBox_(slide,ag24Text_(data.eyebrow,'CONTEXTE'),54,45,680,24,
@@ -344,254 +332,163 @@ function createInsightSlide_(slide,data) {
 }
 
 function createSolutionSlide_(slide,data) {
-  const theme=getPremiumTheme_();
+  const t=getPremiumTheme_();
   addSectionHeader_(slide,data.eyebrow,data.title);
-  if(ag24Text_(data.body)) {
-    addPanel_(slide,54,192,570,168,theme.panel);
-    addTextBox_(slide,data.body,80,218,518,117,
-      {fontSize:18,color:theme.text});
+  const status=ag24Text_(data.status);
+  const width=status?570:846;
+  if(ag24Text_(data.body)){
+    addPanel_(slide,54,190,width,245,t.panel);
+    addTextBox_(slide,data.body,80,216,width-52,197,{fontSize:18,color:t.text});
   }
-  if(ag24Text_(data.status)) {
-    addPanel_(slide,650,192,250,168,theme.panelAlt);
-    addTextBox_(slide,'STATUT ACTUEL',674,216,200,18,
-      {fontSize:10,bold:true,color:theme.green});
-    addTextBox_(slide,data.status,674,252,200,75,
-      {fontSize:16,bold:true,color:theme.white});
+  if(status){
+    addPanel_(slide,650,190,250,245,t.panelAlt);
+    addTextBox_(slide,'STATUT ACTUEL',674,215,200,20,
+      {fontSize:10,bold:true,color:t.green});
+    addTextBox_(slide,status,674,250,200,165,
+      {fontSize:17,bold:true,color:t.white});
   }
 }
 
-function createStepsSlide_(slide, data) {
-  const theme = getPremiumTheme_();
-
-  addSectionHeader_(slide, data.eyebrow, data.title);
-
-  const items = normalizeSlideItems_(data.items, 3).slice(0, 5);
-  if (!items.length) {
-    addTextBox_(slide,'Les étapes du service ne sont pas encore décrites.',
-      60,243,785,64,{fontSize:19,color:theme.muted});
-    return;
-  }
-  const gap = 12;
-  const totalWidth = 846;
-  const width =
-    (totalWidth - gap * (items.length - 1)) /
-    items.length;
-
-  items.forEach(function(item, index) {
-    const x = 54 + index * (width + gap);
-
-    addPanel_(slide, x, 210, width, 142, theme.panel);
-
-    addCircleNumber_(
-      slide,
-      String(index + 1),
-      x + 16,
-      226
-    );
-
-    addTextBox_(
-      slide,
-      ag24Text_(item, ''),
-      x + 16,
-      278,
-      width - 32,
-      54,
-      {
-        fontSize: 12,
-        bold: true,
-        color: theme.white
-      }
-    );
+function createStepsSlide_(slide,data) {
+  const t=getPremiumTheme_();
+  addSectionHeader_(slide,data.eyebrow,data.title);
+  const items=normalizeSlideItems_(data.items,5).slice(0,5);
+  if(!items.length) return;
+  const cols=items.length===1?1:2;
+  const gap=16, cellW=(846-gap*(cols-1))/cols;
+  const rows=Math.ceil(items.length/cols);
+  const cellH=(254-gap*(rows-1))/rows;
+  items.forEach(function(item,index){
+    const x=54+(index%cols)*(cellW+gap);
+    const y=185+Math.floor(index/cols)*(cellH+gap);
+    addPanel_(slide,x,y,cellW,cellH,t.panel);
+    addTextBox_(slide,'0'+(index+1),x+16,y+14,37,27,
+      {fontSize:16,bold:true,color:t.green});
+    addTextBox_(slide,item,x+57,y+15,cellW-76,cellH-27,
+      {fontSize:16,bold:true,color:t.white});
   });
 }
 
 function createMarketSlide_(slide,data) {
-  const theme=getPremiumTheme_();
+  const t=getPremiumTheme_();
   addSectionHeader_(slide,data.eyebrow,data.title);
-  // Use a large piece of REAL declared data, not invented TAM/SAM/SOM.
-  if(ag24Text_(data.geography)) {
-    addPanel_(slide,54,209,330,158,theme.panelAlt);
-    addTextBox_(slide,'GÉOGRAPHIE PRIORITAIRE',75,229,289,20,
-      {fontSize:10,bold:true,color:theme.green});
-    addTextBox_(slide,data.geography,75,263,285,77,
-      {fontSize:21,bold:true,color:theme.white});
+  const geo=ag24Text_(data.geography),est=ag24Text_(data.estimate);
+  if(geo){
+    addPanel_(slide,54,190,330,246,t.panelAlt);
+    addTextBox_(slide,'GÉOGRAPHIE PRIORITAIRE',75,213,289,22,
+      {fontSize:10,bold:true,color:t.green});
+    addTextBox_(slide,geo,75,252,285,157,{fontSize:19,bold:true,color:t.white});
   }
-  if(ag24Text_(data.estimate)) {
-    addPanel_(slide,408,209,492,158,theme.panel);
-    addTextBox_(slide,'POTENTIEL DÉCLARÉ',432,229,450,20,
-      {fontSize:10,bold:true,color:theme.green});
-    addTextBox_(slide,data.estimate,432,262,440,88,
-      {fontSize:18,bold:true,color:theme.white});
+  if(est){
+    const x=geo?408:54, w=geo?492:846;
+    addPanel_(slide,x,190,w,246,t.panel);
+    addTextBox_(slide,'POTENTIEL DÉCLARÉ',x+24,213,w-48,22,
+      {fontSize:10,bold:true,color:t.green});
+    addTextBox_(slide,est,x+24,250,w-48,163,{fontSize:19,bold:true,color:t.white});
   }
-  addSourceLine_(slide,data.source,54,386,846);
+  addSourceLine_(slide,data.source,54,455,846);
 }
+
 function createBusinessSlide_(slide,data) {
-  const theme=getPremiumTheme_();
+  const t=getPremiumTheme_();
   addSectionHeader_(slide,data.eyebrow,data.title);
-  if(ag24Text_(data.pricing)) {
-    addPanel_(slide,54,210,388,156,theme.panelAlt);
-    addTextBox_(slide,'MODÈLE DE TARIFICATION',76,230,344,23,
-      {fontSize:10,bold:true,color:theme.green});
-    addTextBox_(slide,data.pricing,76,268,344,72,
-      {fontSize:24,bold:true,color:theme.white});
+  const pricing=ag24Text_(data.pricing), acquisition=ag24Text_(data.acquisition);
+  const revenue=ag24Text_(data.revenue);
+  if(pricing){
+    addPanel_(slide,54,190,390,247,t.panelAlt);
+    addTextBox_(slide,'TARIFICATION',78,212,342,23,
+      {fontSize:10,bold:true,color:t.green});
+    addTextBox_(slide,pricing,78,248,342,164,
+      {fontSize:21,bold:true,color:t.white});
   }
-  if(ag24Text_(data.acquisition)) {
-    addTextBox_(slide,'ACQUISITION CLIENT',480,217,395,26,
-      {fontSize:10,bold:true,color:theme.green});
-    addTextBox_(slide,data.acquisition,480,252,395,63,
-      {fontSize:17,color:theme.white});
-  }
-  if(ag24Text_(data.revenue)) {
-    addTextBox_(slide,'STATUT DES REVENUS',480,325,395,22,
-      {fontSize:10,bold:true,color:theme.yellow});
-    addTextBox_(slide,data.revenue,480,349,395,42,
-      {fontSize:17,bold:true,color:theme.white});
+  if(acquisition || revenue){
+    const x=pricing?472:54,w=pricing?428:846;
+    addPanel_(slide,x,190,w,247,t.panel);
+    if(acquisition){
+      addTextBox_(slide,'ACQUISITION CLIENT',x+24,211,w-48,22,
+        {fontSize:10,bold:true,color:t.green});
+      addTextBox_(slide,acquisition,x+24,244,w-48,revenue?107:165,
+        {fontSize:17,color:t.white});
+    }
+    if(revenue){
+      addTextBox_(slide,'REVENUS',x+24,acquisition?361:215,w-48,19,
+        {fontSize:10,bold:true,color:t.yellow});
+      addTextBox_(slide,revenue,x+24,acquisition?387:250,w-48,43,
+        {fontSize:17,bold:true,color:t.white});
+    }
   }
 }
 
-function createTractionSlide_(slide,data) {
-  const theme=getPremiumTheme_();
+function createTractionSlide_(slide,data){
+  const t=getPremiumTheme_();
   addSectionHeader_(slide,data.eyebrow,data.title);
   const metrics=Array.isArray(data.metrics)?data.metrics.slice(0,3):[];
-  if(metrics.length===0) {
-    addTextBox_(slide,'Aucun indicateur chiffré documenté pour le moment.',
-      54,241,770,72,{fontSize:19,color:theme.muted});
-  }
-  const gap=16,totalWidth=846;
-  const width=metrics.length?(totalWidth-gap*(metrics.length-1))/metrics.length:0;
+  const gap=16, width=metrics.length?(846-gap*(metrics.length-1))/metrics.length:0;
   metrics.forEach(function(metric,index){
     const x=54+index*(width+gap);
-    addPanel_(slide,x,203,width,163,theme.panelAlt);
-    addTextBox_(slide,ag24Text_(metric.value),x+18,225,width-36,60,
-      {fontSize:29,bold:true,color:theme.green,
-       align:SlidesApp.ParagraphAlignment.CENTER});
-    addTextBox_(slide,ag24Text_(metric.label),x+16,299,width-32,56,
-      {fontSize:12,color:theme.text,
-       align:SlidesApp.ParagraphAlignment.CENTER});
+    addPanel_(slide,x,191,width,246,t.panelAlt);
+    addTextBox_(slide,ag24Text_(metric.value),x+18,225,width-36,86,
+      {fontSize:30,bold:true,color:t.green,align:SlidesApp.ParagraphAlignment.CENTER});
+    addTextBox_(slide,ag24Text_(metric.label),x+16,330,width-32,78,
+      {fontSize:13,color:t.text,align:SlidesApp.ParagraphAlignment.CENTER});
   });
-  addSourceLine_(slide,data.evidence,54,390,846);
+  addSourceLine_(slide,data.evidence,54,458,846);
 }
 
-function createCompetitionSlide_(slide, data) {
-  const theme = getPremiumTheme_();
-
-  addSectionHeader_(slide, data.eyebrow, data.title);
-
-  addPanel_(slide, 54, 205, 390, 166, theme.panel);
-
-  addTextBox_(
-    slide,
-    'ALTERNATIVES EXISTANTES',
-    78,
-    224,
-    320,
-    18,
-    {
-      fontSize: 9,
-      bold: true,
-      color: theme.green
-    }
-  );
-
-  const competitors = normalizeSlideItems_(
-    data.competitors,
-    3
-  ).slice(0, 5);
-
-  addTextBox_(
-    slide,
-    competitors.map(function(item) {
-      return '• ' + item;
-    }).join('\n'),
-    78,
-    258,
-    330,
-    92,
-    {
-      fontSize: 13,
-      color: theme.text
-    }
-  );
-
-  addPanel_(slide, 470, 205, 430, 166, theme.panelAlt);
-
-  addTextBox_(
-    slide,
-    'AVANTAGE DIFFÉRENCIATEUR',
-    494,
-    224,
-    330,
-    18,
-    {
-      fontSize: 9,
-      bold: true,
-      color: theme.yellow
-    }
-  );
-
-  addTextBox_(
-    slide,
-    ag24Text_(data.title, 'Avantage à préciser'),
-    494,
-    258,
-    382,
-    84,
-    {
-      fontSize: 17,
-      bold: true,
-      color: theme.white
-    }
-  );
-}
-
-function createGoToMarketSlide_(slide, data) {
-  const theme = getPremiumTheme_();
-
-  addSectionHeader_(slide, data.eyebrow, data.title);
-
-  const milestones = normalizeSlideItems_(
-    data.milestones,
-    3
-  ).slice(0, 4);
-  if (!milestones.length) {
-    addTextBox_(slide,'Les jalons de croissance restent à définir.',
-      54,254,790,55,{fontSize:19,color:theme.muted});
-    return;
+function createCompetitionSlide_(slide,data){
+  const t=getPremiumTheme_();
+  addSectionHeader_(slide,data.eyebrow,data.title);
+  const competitors=normalizeSlideItems_(data.competitors,5).slice(0,5);
+  const advantage=ag24Text_(data.advantage);
+  if(competitors.length){
+    const width=advantage?406:846;
+    addPanel_(slide,54,190,width,249,t.panel);
+    addTextBox_(slide,'ALTERNATIVES EXISTANTES',77,214,width-45,22,
+      {fontSize:10,bold:true,color:t.green});
+    addTextBox_(slide,competitors.map(function(s){return '• '+s;}).join('\n'),
+      78,253,width-50,158,{fontSize:15,color:t.text});
   }
+  if(advantage){
+    const x=competitors.length?480:54,w=competitors.length?420:846;
+    addPanel_(slide,x,190,w,249,t.panelAlt);
+    addTextBox_(slide,'NOTRE DIFFÉRENCIATION',x+24,214,w-48,22,
+      {fontSize:10,bold:true,color:t.yellow});
+    addTextBox_(slide,advantage,x+24,253,w-48,158,
+      {fontSize:18,bold:true,color:t.white});
+  }
+}
 
-  milestones.forEach(function(item, index) {
-    const slotWidth = (846 - (milestones.length - 1) * 14) / milestones.length;
-    const x = 54 + index * (slotWidth + 14);
+function AG24_LAYOUT_pickMilestones_(items,maxCount){
+  const clean=(items||[]).filter(function(item){return AG24_LAYOUT_plain_(item);});
+  // A prose introduction is not itself a milestone when dated objectives exist.
+  const dated=clean.filter(function(item){
+    return /(?:\bmois\s*\d+|\btrimestre\s*\d+|\bannée\s*\d+|\bT[1-4]\b)/i.test(item);
+  });
+  const relevant=dated.length>=2?dated:clean;
+  if(relevant.length<=maxCount)return relevant;
+  const selected=[];
+  for(let i=0;i<maxCount;i++){
+    const index=Math.round(i*(relevant.length-1)/(maxCount-1));
+    selected.push(relevant[index]);
+  }
+  return selected;
+}
 
-    addPanel_(slide, x, 212, slotWidth, 142, theme.panel);
-
-    addTextBox_(
-      slide,
-      '0' + String(index + 1),
-      x + 16,
-      228,
-      48,
-      26,
-      {
-        fontSize: 18,
-        bold: true,
-        color: theme.green
-      }
-    );
-
-    addTextBox_(
-      slide,
-      item,
-      x + 16,
-      272,
-      slotWidth - 32,
-      62,
-      {
-        fontSize: 12,
-        bold: true,
-        color: theme.white
-      }
-    );
+function createGoToMarketSlide_(slide,data){
+  const t=getPremiumTheme_();
+  addSectionHeader_(slide,data.eyebrow,data.title);
+  const items=AG24_LAYOUT_pickMilestones_(normalizeSlideItems_(data.milestones,4),4);
+  if(!items.length)return;
+  const cols=items.length===1?1:2, gap=16;
+  const w=(846-gap*(cols-1))/cols,rows=Math.ceil(items.length/cols);
+  const h=(265-gap*(rows-1))/rows;
+  items.forEach(function(item,index){
+    const x=54+(index%cols)*(w+gap), y=184+Math.floor(index/cols)*(h+gap);
+    addPanel_(slide,x,y,w,h,t.panel);
+    addTextBox_(slide,'0'+(index+1),x+15,y+13,39,25,
+      {fontSize:15,bold:true,color:t.green});
+    addTextBox_(slide,item,x+60,y+12,w-77,h-26,
+      {fontSize:14,bold:true,color:t.white});
   });
 }
 
@@ -1083,132 +980,87 @@ function addPill_(
   return shape;
 }
 
-function addSourceLine_(
-  slide,
-  text,
-  x,
-  y,
-  width
-) {
-  const theme = getPremiumTheme_();
-
-  if (!ag24Text_(text)) return;
-  addTextBox_(
-    slide,
-    'PREUVE / SOURCE : ' +
-      ag24Text_(
-        text,
-        ''
-      ),
-    x,
-    y,
-    width,
-    22,
-    {
-      fontSize: 9,
-      color: theme.muted
-    }
-  );
+function addSourceLine_(slide,text,x,y,width){
+  const t=getPremiumTheme_(),clean=AG24_LAYOUT_plain_(text);
+  if(!clean)return;
+  addTextBox_(slide,'Source : '+clean,x,y||456,width,39,
+    {fontSize:10,minFontSize:10,color:t.muted});
 }
 
-function addTextBox_(
-  slide,
-  text,
-  x,
-  y,
-  width,
-  height,
-  options
-) {
-  const theme = getPremiumTheme_();
-  const settings = options || {};
-
-  const box = slide.insertTextBox(
-    ag24Text_(text),
-    ag24ScaleX_(x),
-    ag24ScaleY_(y),
-    ag24ScaleX_(width),
-    ag24ScaleY_(height)
-  );
-
-  const range = box.getText();
-
-  range.getTextStyle()
-    .setFontFamily(
-      settings.fontFamily || 'Arial'
-    )
-    .setFontSize(
-      ag24ScaleFont_(settings.fontSize || 14)
-    )
-    .setBold(
-      Boolean(settings.bold)
-    )
-    .setForegroundColor(
-      settings.color || theme.text
-    );
-
+/**
+ * Render-only typographic preflight. Canonical project data is never modified.
+ * Every textbox adapts its font to its actual available width and height.
+ */
+function AG24_LAYOUT_plain_(value){
+  let s=String(value===null||value===undefined?'':value);
+  if(/^(?:projet sans nom|information non documentée|information à compléter|source requise|à préciser|montant à définir|non renseignée?)$/i.test(s.trim()))return '';
+  return s.replace(/\u0007/g,' • ')
+    .replace(/\*\*/g,'')
+    .replace(/__(.*?)__/g,'$1')
+    .replace(/(^|\n)\s*#{1,6}\s*/g,'$1')
+    .replace(/(^|\n)\s*[-*]\s+/g,'$1• ')
+    .replace(/[ \t]+/g,' ').trim();
+}
+function AG24_LAYOUT_countLines_(text,width,font,bold){
+  const charWidth=font*(bold?0.56:0.51);
+  const max=Math.max(8,(width*0.75-9)/charWidth);
+  let lines=0;
+  String(text).split('\n').forEach(function(paragraph){
+    if(!paragraph.trim()){lines+=1;return;}
+    let current=0;
+    paragraph.split(/\s+/).forEach(function(word){
+      const len=Array.from(word).reduce(function(sum,c){
+        return sum+(/[MW@%]/.test(c)?1.4:/[il.,:;!|]/.test(c)?0.46:1);
+      },0);
+      if(current>0 && current+1+len>max){lines+=1;current=0;}
+      if(len>max){lines+=Math.floor(len/max);current=len%max;}
+      else current+=len+(current>0?1:0);
+    });
+    if(current>0)lines+=1;
+  });
+  return Math.max(lines,1);
+}
+function AG24_LAYOUT_font_(text,width,height,requested,bold,minSize){
+  const base=Number(requested)||14;
+  const lower=Number(minSize)||10;
+  for(let size=base;size>=lower;size-=0.5){
+    const actual=ag24ScaleFont_(size);
+    const lines=AG24_LAYOUT_countLines_(text,width,actual,bold);
+    const needed=lines*actual*1.24+3;
+    if(needed<=height*0.75)return actual;
+  }
+  return ag24ScaleFont_(lower);
+}
+function addTextBox_(slide,text,x,y,width,height,options){
+  const t=getPremiumTheme_(),opts=options||{};
+  const clean=AG24_LAYOUT_plain_(text);
+  if(!clean || width<=0 || height<=0)return null;
+  const box=slide.insertTextBox(clean,ag24ScaleX_(x),ag24ScaleY_(y),
+    ag24ScaleX_(width),ag24ScaleY_(height));
+  const range=box.getText();
+  range.getTextStyle().setFontFamily(opts.fontFamily||'Arial')
+    .setFontSize(AG24_LAYOUT_font_(clean,width,height,opts.fontSize||14,
+      Boolean(opts.bold),opts.minFontSize||10))
+    .setBold(Boolean(opts.bold))
+    .setForegroundColor(opts.color||t.text);
   range.getParagraphStyle().setParagraphAlignment(
-    settings.align ||
-    SlidesApp.ParagraphAlignment.START
-  );
-
+    opts.align||SlidesApp.ParagraphAlignment.START);
   return box;
 }
 
-function addPremiumFooter_(
-  slide,
-  number,
-  totalSlides,
-  qualityLabel,
-  submissionMode,
-  submissionProjectName
-) {
-  const theme = getPremiumTheme_();
-
-  const line = slide.insertShape(
-    SlidesApp.ShapeType.RECTANGLE,
-    ag24ScaleX_(54),
-    ag24ScaleY_(420),
-    ag24ScaleX_(846),
-    Math.max(1, ag24ScaleY_(1))
-  );
-
-  line.getFill().setSolidFill(theme.line);
-  removeShapeBorder_(line);
-
-  addTextBox_(
-    slide,
-    submissionMode ? ag24Text_(submissionProjectName,'Pitch Deck') : 'AfriGreen24 Pitch Studio',
-    54,
-    428,
-    300,
-    12,
-    {
-      fontSize: 8,
-      color: theme.muted
-    }
-  );
-
-  if (!submissionMode && qualityLabel && qualityLabel !== 'PRÊT POUR REVUE HUMAINE') {
-    addTextBox_(slide,qualityLabel + ' • DONNÉES À VÉRIFIER',
-      330,426,430,20,{fontSize:9,bold:true,color:theme.yellow,
-      align:SlidesApp.ParagraphAlignment.CENTER});
-  }
-  addTextBox_(
-    slide,
-    String(number || '') +
-      ' / ' +
-      String(totalSlides || 12),
-    810,
-    428,
-    90,
-    12,
-    {
-      fontSize: 8,
-      color: theme.muted,
-      align: SlidesApp.ParagraphAlignment.END
-    }
-  );
+function addPremiumFooter_(slide,number,totalSlides,qualityLabel,submissionMode,submissionProjectName){
+  // Draft feedback, warnings and document-editing instructions belong to the
+  // app's diagnostics. Investor facts and source qualifications remain in copy.
+  const t=getPremiumTheme_();
+  const line=slide.insertShape(SlidesApp.ShapeType.RECTANGLE,
+    ag24ScaleX_(54),ag24ScaleY_(503),ag24ScaleX_(846),Math.max(1,ag24ScaleY_(1)));
+  line.getFill().setSolidFill(t.line);removeShapeBorder_(line);
+  if(submissionMode && AG24_LAYOUT_plain_(submissionProjectName))
+    addTextBox_(slide,submissionProjectName,54,510,540,18,
+      {fontSize:9,color:t.muted});
+  addTextBox_(slide,String(number||'')+' / '+String(totalSlides||12),
+    810,510,90,18,{fontSize:9,color:t.muted,
+      align:SlidesApp.ParagraphAlignment.END});
 }
 
 function setShapeBorder_(
